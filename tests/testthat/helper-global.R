@@ -1,0 +1,52 @@
+suppressMessages(suppressWarnings(library(xts)))
+suppressMessages(suppressWarnings(library(tsgarch)))
+y <- as.xts(dji30retw)
+test_series <- c(1,2,3)
+sample_index <- 1:1100
+test_index <- 1101:1140
+
+x <- lapply(seq_along(test_series), function(i){
+    spec <- garch_modelspec(y[sample_index,i], model = "egarch")
+    mod <- estimate(spec, keep_tmb = TRUE)
+    return(mod)
+})
+names(x) <- colnames(y)[test_series]
+x <- to_multi_estimate(x)
+
+# CGARCH Model
+global_cgarch_spec_constant_p <- cgarch_modelspec(x, dynamics = "constant", transformation = "parametric", copula = "gaussian", constant_correlation = "spearman")
+global_cgarch_spec_constant_spd <- cgarch_modelspec(x, dynamics = "constant", transformation = "spd", copula = "gaussian", constant_correlation = "spearman")
+global_cgarch_spec_constant_e <- cgarch_modelspec(x, dynamics = "constant", transformation = "empirical", copula = "gaussian", constant_correlation = "spearman")
+
+global_cgarch_constant_estimate_p <- estimate(global_cgarch_spec_constant_p, control = list(trace = 0))
+global_cgarch_constant_estimate_spd <- estimate(global_cgarch_spec_constant_spd, control = list(trace = 0))
+global_cgarch_constant_estimate_e <- estimate(global_cgarch_spec_constant_e, control = list(trace = 0))
+
+global_cgarch_spec_dcc_normal_p <- cgarch_modelspec(x, dynamics = "dcc", transformation = "parametric", copula = "gaussian")
+global_cgarch_spec_dcc_normal_spd <- cgarch_modelspec(x, dynamics = "dcc", transformation = "spd", copula = "gaussian")
+global_cgarch_spec_dcc_normal_e <- cgarch_modelspec(x, dynamics = "dcc", transformation = "empirical", copula = "gaussian")
+
+global_cgarch_dcc_estimate_p <- estimate(global_cgarch_spec_dcc_normal_p, control = list(trace = 0), return_hessian = FALSE)
+global_cgarch_dcc_estimate_spd <- estimate(global_cgarch_spec_dcc_normal_spd, control = list(trace = 0), return_hessian = FALSE)
+global_cgarch_dcc_estimate_e <- estimate(global_cgarch_spec_dcc_normal_e, control = list(trace = 0), return_hessian = FALSE)
+
+# DCC Model
+global_dcc_spec_constant <- dcc_modelspec(x, dynamics = "constant", distribution = "gaussian")
+global_dcc_spec_dynamic <- dcc_modelspec(x, dynamics = "dcc", distribution = "gaussian")
+global_adcc_spec_dynamic <- dcc_modelspec(x, dynamics = "adcc", distribution = "gaussian")
+
+global_dcc_constant_estimate <- estimate(global_dcc_spec_constant, control = list(trace = 0))
+global_dcc_dynamic_estimate <- estimate(global_dcc_spec_dynamic, control = list(trace = 0))
+global_adcc_dynamic_estimate <- estimate(global_adcc_spec_dynamic, control = list(trace = 0))
+
+# GOGARCH Model
+gogarch_sample_index <- 1:1600
+gogarch_filter_index <- 1608:1690
+data("globalindices", package = "tsmarch")
+globalindices <- as.xts(globalindices)
+global_gogarch_spec <- gogarch_modelspec(globalindices[gogarch_sample_index,1:6], distribution = "gh", components = 6, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
+global_gogarch_mod <- suppressWarnings(estimate(global_gogarch_spec))
+# dimensionality reduced
+global_gogarch_spec_dr <- gogarch_modelspec(globalindices[gogarch_sample_index,1:6], distribution = "gh", components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
+global_gogarch_mod_dr <- suppressWarnings(estimate(global_gogarch_spec_dr))
+

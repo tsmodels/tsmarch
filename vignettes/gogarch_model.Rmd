@@ -1,0 +1,48 @@
+---
+title: "The GOGARCH Model"
+author: "Alexios Galanos"
+date: "`r Sys.Date()`"
+output: 
+    rmarkdown::html_vignette:
+        css: custom.css
+        code_folding: show
+bibliography: tsmarch.bib
+vignette: >
+  %\VignetteIndexEntry{The GOGARCH Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+The GOGARCH model in the `tsmarch` package is based on the approach described
+in @Chen2007, @Broda2009 and @Ghalanos2015. The steps in estimating this model are as follows:
+0
+1. Filter the data for conditional mean dynamics ($\mu_{i,t}$).
+2. Perform Independent Component Analysis (ICA) on the residuals to separate out the
+additive and statistically independent components.
+3. Estimate the conditional distribution of each independent component.
+4. Recombine the
+
+A key advantage of this approach is the ability to estimate multivariate dynamics 
+using only univariate methods, providing for feasible estimation of large 
+scale systems. This comes with certain key assumptions; the independent sub-components 
+have at most one that is Gaussian; independence across time is static. The conditional
+univariate distributions must be chosen from the same distribution family (unlike the
+Copula model), and posess certain properties which
+
+The speed advantage of this approach does not come free, as there is a corresponding
+need for memory to handle the parallelization offered.
+
+There are 2 key outputs from this approach. One is the generation of conditional co-moment
+matrices, and the other is the conditional weighted (portfolio) density, both of which
+have wide applications in portfolio and risk management.
+
+# References
