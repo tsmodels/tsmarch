@@ -13,6 +13,7 @@ gogarch_modelspec(
   components = NCOL(y),
   lambda_range = c(-5, 5),
   shape_range = c(0.1, 25),
+  cond_mean = NULL,
   ...
 )
 }
@@ -37,6 +38,8 @@ the lambda parameter.}
 
 \item{shape_range}{for the generalized hyperbolic distribution, the range of
 the shape parameter (zeta).}
+
+\item{cond_mean}{an optional matrix of the conditional mean for the series.}
 
 \item{...}{additional arguments passed to the \code{\link{radical}} function.}
 }

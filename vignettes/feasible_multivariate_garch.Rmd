@@ -1,0 +1,106 @@
+---
+title: "Feasible Multivariate GARCH Model"
+author: "Alexios Galanos"
+date: "`r Sys.Date()`"
+output: 
+    rmarkdown::html_vignette:
+        code_folding: hide
+        citation_package: natbib
+        toc: yes
+bibliography-style: apalike
+natbiboptions: round
+bibliography: tsmarch.bib
+vignette: >
+  %\VignetteIndexEntry{Feasible Multivariate GARCH Model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  comment = "##",
+  R.options = list(width = 60)
+)
+```
+
+# Introduction
+
+The `tsmarch` package represents a re-write and re-think of the models in 
+`rmgarch`. It is written using simpler S3 methods and classes, has a cleaner 
+code base, extensive documentation and unit tests, provides speed gains by 
+making use of parallelization in both R and in the C++ code via `RcppParallel`, 
+and works with the new univariate GARCH package `tsgarch`.
+To keep things simple, similar to the approach adopted in `tsgarch`, conditional
+mean dynamics are not included. Since the distributions are location/scale invariant,
+the series must be pre-filtered for conditional mean dynamics before submitting
+the data, and can be added back into the output post-computation. The prediction
+routine will always return a zero-mean simulated distribution which can then
+be shifted by the conditional mean forecast calculated outside this package.
+
+The next sections provide a detailed overview of each of the 3 models available,
+namely the Dynamic Correlation GARCH model of , the Copula-DCC model and the
+Generalized Orthogonal GARCH model.
+
+# Dynamic Conditional Correlation (`dcc`)
+
+The DCC model decomposes the dynamics of the conditional covariance into the 
+conditional standard deviations and correlations, so that it may be expressed 
+in such a way that the univariate and multivariate dynamics may be separated, 
+thus easing the estimation process. The equation for the conditional covariance
+can be represented as:
+
+$$
+\bf{H_t} = \bf{D_t}\bf{R}\bf{D_t} = {\rho _{ij}}\sqrt {{h_{iit}}{h_{jjt}}},
+$$
+
+where $\bf{D_t} = diag(\sqrt {h_{11,t}} ,...,\sqrt{h_{nn,t}})$,
+and $\bf{R}$ is the positive definite constant conditional correlation matrix.
+The conditional variances, $h_{ii,t}$, which can be estimated separately,
+can be written in vector form based on GARCH(p,q) models:
+
+$$
+{h_t} = \omega  + \sum\limits_{i = 1}^p {\bf{A_i}{\varepsilon _{t - i}} \odot {\varepsilon _{t - i}} + } \sum\limits_{i = 1}^q {\bf{B}_i}{h_{t - i}}
+$$
+
+where $\omega  \in {\mathbb{R}^n}$, $\bf{A}_i$ and $\bf{B}_i$ are $N\times N$
+diagonal matrices, and $\odot$ denotes the Hadamard operator. The conditions for
+the positivity of the covariance matrix $\bf{H}_t$ are that $\bf{R}$ is positive
+definite, and the elements of $\omega$ and the diagonal elements of the matrices
+$\bf{A}_i$ and $\bf{B}_i$ are positive
+
+
+# Generalized Orthogonal GARCH Model (`gogarch`)
+
+The GOGARCH model in the `tsmarch` package is based on the approach described
+in @Chen2007, @Broda2009 and @Ghalanos2015. The steps in estimating this model are as follows:
+
+1. Filter the data for conditional mean dynamics ($\mu_{i,t}$).
+2. Perform Independent Component Analysis (ICA) on the residuals to separate out the
+additive and statistically independent components.
+3. Estimate the conditional distribution of each independent component.
+4. Recombine the
+
+A key advantage of this approach is the ability to estimate multivariate dynamics 
+using only univariate methods, providing for feasible estimation of large 
+scale systems. This comes with certain key assumptions; the independent sub-components 
+have at most one that is Gaussian; independence across time is static. The conditional
+univariate distributions must be chosen from the same distribution family (unlike the
+Copula model), and posses certain properties which
+
+Contrary to the principal component GARCH model which only assumes uncorrelated components, 
+the GOGARCH model enforces independence which allows for the use of non Gaussian conditional
+distributions for the margins making it a better candidate for most practical applications
+where departure from normality is widespread.
+
+
+The speed advantage of this approach does not come free, as there is a corresponding
+need for memory to handle the parallelization offered.
+
+There are 2 key outputs from this approach. One is the generation of conditional co-moment
+matrices, and the other is the conditional weighted (portfolio) density, both of which
+have wide applications in portfolio and risk management.
+
+# References

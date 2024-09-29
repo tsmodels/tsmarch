@@ -8,6 +8,9 @@
 \alias{fitted.dcc.estimate}
 \alias{fitted.dcc.simulate}
 \alias{fitted.dcc.predict}
+\alias{fitted.gogarch.estimate}
+\alias{fitted.gogarch.predict}
+\alias{fitted.gogarch.simulate}
 \title{Extract Model Fitted Values}
 \usage{
 \method{fitted}{cgarch.estimate}(object, ...)
@@ -21,6 +24,12 @@
 \method{fitted}{dcc.simulate}(object, ...)
 
 \method{fitted}{dcc.predict}(object, ...)
+
+\method{fitted}{gogarch.estimate}(object, ...)
+
+\method{fitted}{gogarch.predict}(object, ...)
+
+\method{fitted}{gogarch.simulate}(object, ...)
 }
 \arguments{
 \item{object}{an object from one of the estimated, simulated or predicted

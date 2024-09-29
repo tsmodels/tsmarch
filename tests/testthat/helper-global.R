@@ -39,14 +39,4 @@ global_dcc_constant_estimate <- estimate(global_dcc_spec_constant, control = lis
 global_dcc_dynamic_estimate <- estimate(global_dcc_spec_dynamic, control = list(trace = 0))
 global_adcc_dynamic_estimate <- estimate(global_adcc_spec_dynamic, control = list(trace = 0))
 
-# GOGARCH Model
-gogarch_sample_index <- 1:1600
-gogarch_filter_index <- 1608:1690
-data("globalindices", package = "tsmarch")
-globalindices <- as.xts(globalindices)
-global_gogarch_spec <- gogarch_modelspec(globalindices[gogarch_sample_index,1:6], distribution = "gh", components = 6, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
-global_gogarch_mod <- suppressWarnings(estimate(global_gogarch_spec))
-# dimensionality reduced
-global_gogarch_spec_dr <- gogarch_modelspec(globalindices[gogarch_sample_index,1:6], distribution = "gh", components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
-global_gogarch_mod_dr <- suppressWarnings(estimate(global_gogarch_spec_dr))
-
+# GOGARCH model tested in folder longtests

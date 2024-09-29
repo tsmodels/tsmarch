@@ -51,7 +51,7 @@ struct gogarch_coskewness_weighted_worker : public RcppParallel::Worker {
     void operator()(std::size_t begin, std::size_t end);
 };
 
-arma::vec gogarch_skewness_weighted(const arma::mat& A, const arma::mat& S, arma::mat w);
+arma::vec gogarch_skewness_weighted(const arma::mat& A, const arma::mat& S, const arma::mat w);
 
 
 struct gogarch_cokurtosis_weighted_worker : public RcppParallel::Worker {
@@ -68,7 +68,7 @@ struct gogarch_cokurtosis_weighted_worker : public RcppParallel::Worker {
     void operator()(std::size_t begin, std::size_t end);
 };
 
-arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, arma::mat w);
-arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, arma::mat w);
+arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, const arma::mat w);
+arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, const arma::mat w);
 
 #endif // GOGARCH_H

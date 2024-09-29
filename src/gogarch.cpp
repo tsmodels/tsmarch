@@ -288,14 +288,8 @@ void gogarch_coskewness_weighted_worker::operator()(std::size_t begin, std::size
 
 // [[Rcpp::export(.gogarch_skewness_weighted)]]
 arma::vec gogarch_skewness_weighted(const arma::mat& A, const arma::mat& S,
-                                      arma::mat w) {
+                                    const arma::mat w) {
     int T = S.n_rows;
-    if (w.n_rows == 1) {
-        w = arma::repmat(w, T, 1);
-    }
-    else if (w.n_rows != T) {
-        Rcpp::stop("The number of rows in w must either be 1 or match the number of rows in S.");
-    }
     arma::vec result(T);
     arma::mat kronA = arma::kron(A, A);
     gogarch_coskewness_weighted_worker worker(S, A, kronA, w, result);
@@ -321,20 +315,16 @@ void gogarch_cokurtosis_weighted_worker::operator()(std::size_t begin, std::size
         arma::mat AV = At * KU;
         arma::mat r_slice = AV * kronA;
         arma::rowvec w_i = W.row(i);
-        arma::mat w_kron_i = arma::kron(w_i.t(), arma::kron(w_i.t(), w_i.t()));
+        arma::vec w_it = w_i.t();
+        arma::mat tmpw = arma::kron(w_it, w_it);
+        arma::mat w_kron_i = arma::kron(w_it, tmpw);
         result(i) = arma::as_scalar(w_i * r_slice * w_kron_i);
     }
 }
 
 // [[Rcpp::export(.gogarch_kurtosis_weighted)]]
-arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, arma::mat w) {
+arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, const arma::mat w) {
     int T = K.n_rows;
-    if (w.n_rows == 1) {
-        w = arma::repmat(w, T, 1);
-    }
-    else if (w.n_rows != T) {
-        Rcpp::stop("The number of rows in w must either be 1 or match the number of rows in K.");
-    }
     arma::vec result(T);
     arma::mat kronA = arma::kron(A, A);
     kronA = arma::kron(kronA, A);
@@ -345,12 +335,9 @@ arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, co
 
 
 // [[Rcpp::export(.gogarch_covariance_weighted)]]
-arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, arma::mat w) {
+arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, const arma::mat w) {
     int n = V.n_rows;
     int m = A.n_cols;
-    if (w.n_rows == 1) {
-        w = arma::repmat(w, n, 1);
-    }
     arma::vec wcovariance = arma::zeros(n);
     arma::mat tmp = arma::zeros(m,m);
     for (int i = 0;i<n;++i){

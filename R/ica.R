@@ -82,7 +82,7 @@
 #' \item{elapsed}{the time taken to run the algorithm}
 #' @export
 #'
-radical <- function(X, components = NCOL(X), demean = TRUE, pca_cov = c("ML", "LW", "ROB", "EWMA"),
+radical <- function(X, components = NCOL(X), demean = TRUE, pca_cov = c("ML", "LW", "EWMA"),
                     k = 150, augment = FALSE, replications = 30, sigma = 0.175,
                     first_eigen = NULL, last_eigen = NULL, E = NULL, D = NULL,
                     Z = NULL, K = NULL, L = NULL, seed = NULL, trace = FALSE, ...)

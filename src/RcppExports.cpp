@@ -670,20 +670,20 @@ BEGIN_RCPP
 END_RCPP
 }
 // gogarch_skewness_weighted
-arma::vec gogarch_skewness_weighted(const arma::mat& A, const arma::mat& S, arma::mat w);
+arma::vec gogarch_skewness_weighted(const arma::mat& A, const arma::mat& S, const arma::mat w);
 RcppExport SEXP _tsmarch_gogarch_skewness_weighted(SEXP ASEXP, SEXP SSEXP, SEXP wSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type S(SSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type w(wSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type w(wSEXP);
     rcpp_result_gen = Rcpp::wrap(gogarch_skewness_weighted(A, S, w));
     return rcpp_result_gen;
 END_RCPP
 }
 // gogarch_cokurtosis_weighted
-arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, arma::mat w);
+arma::vec gogarch_cokurtosis_weighted(const arma::mat& A, const arma::mat& K, const arma::mat& V, const arma::mat w);
 RcppExport SEXP _tsmarch_gogarch_cokurtosis_weighted(SEXP ASEXP, SEXP KSEXP, SEXP VSEXP, SEXP wSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -691,20 +691,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type A(ASEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type K(KSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type V(VSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type w(wSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type w(wSEXP);
     rcpp_result_gen = Rcpp::wrap(gogarch_cokurtosis_weighted(A, K, V, w));
     return rcpp_result_gen;
 END_RCPP
 }
 // gogarch_covariance_weighted
-arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, arma::mat w);
+arma::vec gogarch_covariance_weighted(const arma::mat V, const arma::mat A, const arma::mat w);
 RcppExport SEXP _tsmarch_gogarch_covariance_weighted(SEXP VSEXP, SEXP ASEXP, SEXP wSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat >::type V(VSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type A(ASEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type w(wSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type w(wSEXP);
     rcpp_result_gen = Rcpp::wrap(gogarch_covariance_weighted(V, A, w));
     return rcpp_result_gen;
 END_RCPP

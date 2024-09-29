@@ -457,3 +457,42 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
     }
 }
 
+.cond_mean_spec <- function(mu = NULL, n_series, n_points, series_names)
+{
+    if (is.null(mu)) {
+        mu <- matrix(0, ncol = n_series, nrow = n_points)
+        colnames(mu) <- series_names
+    } else {
+        if (!is.matrix(mu)) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
+        if (NROW(mu) != n_points) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
+        if (NCOL(mu) != n_series) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
+        colnames(mu) <- series_names
+    }
+    return(mu)
+}
+
+
+.cond_mean_inject <- function(x, value, recenter = FALSE) {
+    n_series <- dim(x)[2]
+    h <- dim(x)[1]
+    for (i in 1:n_series) {
+        if (recenter) {
+            if (h == 1) {
+                x[,i,] <- x[,i,] - mean(x[,i,])
+            } else {
+                x[,i,] <- sweep(x[,i,], 1, rowMeans(x[,i,]), FUN = "-")
+            }
+        }
+        if (h == 1) {
+            x[,i,] <- x[,i,] + value[,i]
+        } else {
+            x[,i,] <- sweep(x[,i,], 1, value[,i], FUN = "+")
+        }
+    }
+    return(x)
+}
+
+.univariate_prediction_mu <- function(object, series = 1)
+{
+
+}

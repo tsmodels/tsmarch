@@ -13,11 +13,13 @@
 #' the lambda parameter.
 #' @param shape_range for the generalized hyperbolic distribution, the range of
 #' the shape parameter (zeta).
+#' @param cond_mean an optional matrix of the conditional mean for the series.
 #' @param ... additional arguments passed to the \code{\link{radical}} function.
 #' @returns an object of class \dQuote{gogarch.spec}.
 #' @export
 gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "garch", order = c(1,1), ica = "radical",
-                              components = NCOL(y), lambda_range = c(-5, 5), shape_range = c(0.1, 25), ...)
+                              components = NCOL(y), lambda_range = c(-5, 5), shape_range = c(0.1, 25),
+                              cond_mean = NULL, ...)
 {
 
     distribution <- match.arg(distribution[1], c("norm","nig","gh"))
@@ -28,7 +30,8 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     n_series <- NCOL(y)
     series_names <- colnames(y)
     spec$target$y <- coredata(y)
-    spec$target$mu <- rep(0, n_series)
+    mu <- .cond_mean_spec(mu = cond_mean, n_series, NROW(y), series_names)
+    spec$target$mu <- mu
     spec$target$index <- index(y)
     spec$target$sampling <-
     spec$garch$model <- model
@@ -69,6 +72,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     L$univariate <- garch_model
     L$H <- H
     L$R <- R
+    L$mu <- object$target$mu
     pmatrix <- lapply(garch_model, function(x) x$parmatrix)
     series_names <- paste0("ica_component.",1:length(garch_model))
     for (i in 1:length(pmatrix)) pmatrix[[i]][,series := series_names[i]]
@@ -93,10 +97,15 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     return(new_fit)
 }
 
-.gogarch_filter <- function(object, y = NULL, ...)
+.gogarch_filter <- function(object, y = NULL, cond_mean = NULL, ...)
 {
     elapsed <- Sys.time()
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    if (!is.null(y)) {
+        mu <- .cond_mean_spec(mu = cond_mean, object$spec$n_series, NROW(y), object$spec$series_names)
+        object$spec$target$mu <- rbind(object$spec$target$mu, mu)
+        object$mu <- rbind(object$mu, mu)
+    }
     y <- .check_y_filter(object, y = y)
     new_S <- filter_radical(y, demean = FALSE, object$ica$W, mu = NULL)
     S <- rbind(object$ica$S, new_S)
@@ -124,7 +133,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
 
 
 .gogarch_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                             forc_dates = NULL, seed = NULL, ...)
+                             forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
@@ -134,6 +143,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     } else {
         if (length(forc_dates) != h) stop("\nforc_dates must be a vector of length h.")
     }
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
     p <- lapply(1:length(object$univariate), function(i) {
         pred <- predict(object$univariate[[i]], h = h, nsim = nsim, sim_method = sim_method, forc_dates = forc_dates, seed = seed)
@@ -149,14 +159,24 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
             return(pred)
         }
     })
+    # need conditional mean
+    sim_mu <- lapply(p, function(x) x$distribution)
+    sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, length(p)))
+    sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    # translate back
+    sim_mu <- apply(sim_mu, 3, FUN = function(x) x %*% object$ica$A, simplify = FALSE)
+    sim_mu <- array(unlist(sim_mu), dim = c(h, object$spec$n_series, nsim))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     elapsed <- Sys.time() - elapsed
-    out <- list(univariate = p, ica = object$ic, parmatrix = object$parmatrix, spec = object$spec, forc_dates = forc_dates,
-                h = h, nsim = nsim, elapsed = elapsed)
+    out <- list(univariate = p, mu = sim_mu, cond_mean = mu, ica = object$ic, parmatrix = object$parmatrix, spec = object$spec, forc_dates = forc_dates,
+                h = h, nsim = nsim, n_series = object$spec$n_series, series_names = object$spec$series_names, elapsed = elapsed)
     class(out) <- "gogarch.predict"
     return(out)
 }
 
-.gogarch_simulate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, sim_method = c("parametric", "bootstrap"), ...)
+.gogarch_simulate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, cond_mean = NULL, sim_method = c("parametric", "bootstrap"), ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
@@ -166,8 +186,18 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
         xspec$parmatrix <- copy(object$univariate[[i]]$parmatrix)
         simulate(xspec, h = h, nsim = nsim, sim_method = sim_method, burn = burn, seed = seed)
     })
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    sim_mu <- lapply(sim, function(x) x$series)
+    sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, length(sim)))
+    sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    # translate back
+    sim_mu <- apply(sim_mu, 3, FUN = function(x) x %*% object$ica$A, simplify = FALSE)
+    sim_mu <- array(unlist(sim_mu), dim = c(h, object$spec$n_series, nsim))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     elapsed <- Sys.time() - elapsed
-    out <- list(univariate = sim, ica = object$ic, parmatrix = object$parmatrix, spec = object$spec,
+    out <- list(univariate = sim, mu = sim_mu, ica = object$ic, parmatrix = object$parmatrix, spec = object$spec,
                 h = h, nsim = nsim, elapsed = elapsed)
     class(out) <- "gogarch.simulate"
     return(out)
@@ -177,38 +207,20 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
 
 .gogarch_fitted <- function(object)
 {
-    A <- object$ica$A
     if (inherits(object, "gogarch.estimate")) {
         # strictly speaking this is not requires since the fitted from the IC is always zero mean
-        x <- xts(matrix(0, ncol = object$spec$n_series, nrow = object$spec$nobs), object$spec$target$index)
+        x <- xts(object$mu, object$spec$target$index)
         colnames(x) <- object$spec$series_names
     } else if (inherits(object, "gogarch.predict")) {
-        n_series <- object$spec$n_series
-        nsim <- NROW(object$univariate[[1]]$distribution)
-        h <- NCOL(object$univariate[[1]]$distribution)
-        x <- do.call(abind::abind, lapply(object$univariate, function(x) array(x$distribution, dim = c(nsim, h, 1))))
-        x <- aperm(x, perm = c(2, 3, 1))
-        x <- do.call(abind::abind, lapply(1:dim(x)[3], function(i) array(x[,,i] %*% A, dim = c(h, n_series, 1))))
+        x <- object$mu
         attr(x,"index") <- as.character(object$spec$target$index)
         attr(x,"series") <- object$spec$series_names
     } else if (inherits(object, "gogarch.simulate")) {
-        n_series <- object$spec$n_series
-        nsim <- NROW(object$univariate[[1]]$series)
-        h <- NCOL(object$univariate[[1]]$series)
-        x <- do.call(abind::abind, lapply(object$univariate, function(x) array(x$series, dim = c(nsim, h, 1))))
-        x <- aperm(x, perm = c(2, 3, 1))
-        x <- do.call(abind::abind, lapply(1:dim(x)[3], function(i) array(x[,,i] %*% A, dim = c(h, n_series, 1))))
+        x <- object$mu
         attr(x,"series") <- object$spec$series_names
     }
     return(x)
 }
-
-.gogarch_residuals <- function(object)
-{
-    # ICA residuals: equal to zero if no dimensionality reduction
-}
-
-
 
 .gogarch_dskewness <- function(object)
 {
@@ -260,21 +272,24 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     }
 }
 
+
 .gogarch_port_sigma_simulate <- function(object, weights)
 {
     A <- object$ica$A
     m <- NROW(A)
     n <- object$h
     nsim <- object$nsim
-    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    if (is(object, "gogarch.predict")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    } else if (is(object, "gogarch.simulate")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma)
+    }
     sig <- array(unlist(sig), dim = c(nsim, n, m))
     sig <- aperm(sig, perm = c(2,3,1))
     S <- matrix(0, nrow = nsim, ncol = n)
     for (i in 1:nsim) {
-        tmp <- sig[,,i]
-        # deal with h = 1 case
-        if (!is.matrix(tmp)) tmp <- matrix(tmp, nrow = 1)
-        S[i,] <- .gogarch_covariance_weighted(tmp, A, weights)
+        sig_mat <- .retain_dimensions_array(sig, i)
+        S[i,] <- .gogarch_covariance_weighted(sig_mat, A, weights)
     }
     S <- sqrt(S)
     return(S)
@@ -286,14 +301,19 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     m <- NROW(A)
     n <- object$h
     nsim <- object$nsim
-    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    if (is(object, "gogarch.predict")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    } else if (is(object, "gogarch.simulate")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma)
+    }
     sig <- array(unlist(sig), dim = c(nsim, n, m))
     sig <- aperm(sig, perm = c(2,3,1))
     if (object$spec$distribution != 'norm') {
         sk <- .gogarch_dskewness(object)
         S <- matrix(0, nrow = nsim, ncol = n)
         for (i in 1:nsim) {
-            sksim <- matrix(sk, ncol = m, nrow = n, byrow = TRUE) * sig[,,i]^3
+            sig_mat <- .retain_dimensions_array(sig, i)
+            sksim <- matrix(sk, ncol = m, nrow = n, byrow = TRUE) * sig_mat^3
             S[i,] <- .gogarch_skewness_weighted(A, sksim, weights)
         }
         S <- S/sigma^3
@@ -309,15 +329,20 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     m <- NROW(A)
     n <- object$h
     nsim <- object$nsim
-    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    if (is(object, "gogarch.predict")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    } else if (is(object, "gogarch.simulate")) {
+        sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma)
+    }
     sig <- array(unlist(sig), dim = c(nsim, n, m))
     sig <- aperm(sig, perm = c(2,3,1))
     if (object$spec$distribution != 'norm') {
         ku <- .gogarch_dkurtosis(object)
         K <- matrix(0, nrow = nsim, ncol = n)
         for (i in 1:nsim) {
-            kusim <- matrix(ku, ncol = m, nrow = n, byrow = TRUE) * sig[,,i]^4
-            K[i,] <- .gogarch_kurtosis_weighted(A, K = kusim, V = sig[,,i]^2, w = weights)
+            sig_mat <- .retain_dimensions_array(sig, i)
+            kusim <- matrix(ku, ncol = m, nrow = n, byrow = TRUE) * sig_mat^4
+            K[i,] <- .gogarch_kurtosis_weighted(A, K = kusim, V = sig_mat^2, w = weights)
         }
         K <- K/sigma^4
         return(K)

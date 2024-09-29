@@ -11,7 +11,7 @@
 
 \method{tsfilter}{dcc.estimate}(object, y = NULL, newxreg = NULL, update = TRUE, ...)
 
-\method{tsfilter}{gogarch.estimate}(object, y = NULL, newxreg = NULL, ...)
+\method{tsfilter}{gogarch.estimate}(object, y = NULL, newxreg = NULL, cond_mean = NULL, ...)
 }
 \arguments{
 \item{object}{an object of class \dQuote{cgarch.estimate} or \dQuote{dcc.estimate}.}
@@ -24,6 +24,8 @@
 less than the new data (see details).}
 
 \item{...}{additional arguments for future expansion.}
+
+\item{cond_mean}{an optional matrix of the filtered conditional mean values.}
 }
 \value{
 A \dQuote{cgarch.estimate} or \dQuote{dcc.estimate} object with updated

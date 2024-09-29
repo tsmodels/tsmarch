@@ -39,6 +39,7 @@
   seed = NULL,
   h = 100,
   burn = 0,
+  cond_mean = NULL,
   sim_method = c("parametric", "bootstrap"),
   ...
 )
@@ -76,6 +77,9 @@ variates from the underlying error distribution whilst the \dQuote{bootstrap}
 samples from the whitened innovations of the fitted model.}
 
 \item{...}{no additional arguments currently supported.}
+
+\item{cond_mean}{an optional matrix (h x n_series) of the simulated conditional
+mean for the series which is used to recenter the simulated distribution.}
 }
 \value{
 A simulation class object for which methods exists for extracting

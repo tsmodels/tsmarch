@@ -8,7 +8,7 @@ radical(
   X,
   components = NCOL(X),
   demean = TRUE,
-  pca_cov = c("ML", "LW", "ROB", "EWMA"),
+  pca_cov = c("ML", "LW", "EWMA"),
   k = 150,
   augment = FALSE,
   replications = 30,

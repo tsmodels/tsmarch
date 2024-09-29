@@ -33,6 +33,7 @@
   nsim = 1000,
   sim_method = c("parametric", "bootstrap"),
   forc_dates = NULL,
+  cond_mean = NULL,
   seed = NULL,
   ...
 )
@@ -56,6 +57,9 @@ after the last available date in the data.}
 \item{seed}{an integer that will be used in a call to set.seed before simulating.}
 
 \item{...}{no additional arguments currently supported.}
+
+\item{cond_mean}{an optional matrix (h x n_series) of the predicted conditional
+mean for the series which is used to recenter the simulated predictive distribution.}
 }
 \value{
 A prediction class object for which methods exists for extracting

@@ -1,5 +1,5 @@
 ---
-title: "The GOGARCH Model"
+title: "GOGARCH Demo"
 author: "Alexios Galanos"
 date: "`r Sys.Date()`"
 output: 
@@ -8,7 +8,7 @@ output:
         code_folding: show
 bibliography: tsmarch.bib
 vignette: >
-  %\VignetteIndexEntry{The GOGARCH Model}
+  %\VignetteIndexEntry{GOGARCH Demo}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -22,27 +22,56 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-The GOGARCH model in the `tsmarch` package is based on the approach described
-in @Chen2007, @Broda2009 and @Ghalanos2015. The steps in estimating this model are as follows:
-0
-1. Filter the data for conditional mean dynamics ($\mu_{i,t}$).
-2. Perform Independent Component Analysis (ICA) on the residuals to separate out the
-additive and statistically independent components.
-3. Estimate the conditional distribution of each independent component.
-4. Recombine the
+In this demo, we use the GOGARCH model generate a 1-step ahead forecast of the 
+value at risk of an equally weighted combination of the modelled series using
+a filtering/no re-stimation approach which is a simple way to backtest.
 
-A key advantage of this approach is the ability to estimate multivariate dynamics 
-using only univariate methods, providing for feasible estimation of large 
-scale systems. This comes with certain key assumptions; the independent sub-components 
-have at most one that is Gaussian; independence across time is static. The conditional
-univariate distributions must be chosen from the same distribution family (unlike the
-Copula model), and posess certain properties which
+Load and prepare the data. We leave out 90 weeks for out of sample forecasting.
+```{r data_setup}
+suppressWarnings(library(xts))
+suppressWarnings(library(tsmarch))
+suppressWarnings(library(future))
+RcppParallel::setThreadOptions(numThreads = 1)
+plan(multisession, workers = 1)
+options(future.globals.maxSize = 850 * 1024^2)
+# GOGARCH Model
+sample_index <- 1:1600
+filter_index <- 1601:1690
+data("globalindices", package = "tsmarch")
+globalindices <- as.xts(globalindices)
+```
 
-The speed advantage of this approach does not come free, as there is a corresponding
-need for memory to handle the parallelization offered.
+Initial conditional mean filtration using an AR(1) model.
 
-There are 2 key outputs from this approach. One is the generation of conditional co-moment
-matrices, and the other is the conditional weighted (portfolio) density, both of which
-have wide applications in portfolio and risk management.
+```{r mean_filtration}
 
-# References
+```
+Estimate the model.
+
+```{r estimation}
+spec <- gogarch_modelspec(globalindices[sample_index,], distribution = "nig", model = "egarch", order = c(1,1), components = 6)
+mod <- estimate(spec)
+```
+
+Create a function to iterate through the out of sample data, forecast, aggregate and calculcate the 1% and 5% value at risk.
+
+
+```{r}
+iterate_fun <- function(model, new_data = NULL, h = 1, weights = NULL)
+{
+  nsim <- 1000
+  if (is.null(weights)) weights <- rep(1/model$spec$n_series, model$spec$n_series)
+  if (is.null(new_data)) {
+    p <- predict(model, h = h, nsim = nsim, sim_method = "parametric", seed = 100)
+    conv <- tsconvolve(p, weights = weights, fft_support = NULL)
+    V <- sapply(1:nsim, function(i) {
+      q <- qfft(conv, index = 1, sim = i)
+      q(0.01)
+    })
+  } else {
+    model <- tsfilter(model, y = new_data)
+  }
+  
+}
+  
+```
