@@ -59,6 +59,7 @@
 
 .dcc_dynamic_hessian <- function(pars, spec)
 {
+    estimate <- NULL
     garch_hessian <- lapply(spec$univariate, function(x) .rescale_univariate_hessian(x))
     m <- length(spec$parmatrix[estimate == 1]$value)
     dcc_hessian <- matrix(0, m, m)
@@ -75,7 +76,7 @@
     g <- future_lapply(1:n, function(i) {
         setDTthreads(1)
         .dcc_dynamic_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch"), future.seed = TRUE)
+    }, future.packages = c("tsmarch","data.table"), future.seed = TRUE)
     g <- eval(g)
     g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
@@ -194,6 +195,7 @@
 
 .dcc_constant_hessian <- function(pars, spec)
 {
+    estimate <- NULL
     garch_hessian <- lapply(spec$univariate, function(x) .rescale_univariate_hessian(x))
     m <- length(spec$parmatrix[estimate == 1]$value)
     dcc_hessian <- matrix(0, m, m)
@@ -210,7 +212,7 @@
     g <- future_lapply(1:n, function(i) {
         setDTthreads(1)
         .dcc_constant_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch"), future.seed = NULL)
+    }, future.packages = c("tsmarch","data.table"), future.seed = NULL)
     g <- eval(g)
     g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
@@ -241,6 +243,7 @@
 
 .dcc_constant_scores <- function(pars, spec)
 {
+    estimate <- NULL
     garch_scores <- do.call(cbind, lapply(spec$univariate, function(x) .rescale_univariate_scores(x)))
     N <- NROW(garch_scores)
     n <- length(pars)

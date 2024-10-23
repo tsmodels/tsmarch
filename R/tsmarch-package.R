@@ -11,7 +11,7 @@
 #' @importFrom nloptr nloptr
 #' @importFrom grDevices hcl.colors heat.colors terrain.colors topo.colors
 #' @importFrom Rsolnp solnp
-#' @importFrom graphics grid layout lines par axis barplot contour hist image mtext persp points title
+#' @importFrom graphics grid layout lines par axis barplot contour hist image mtext persp points title abline box
 #' @importFrom future.apply future_lapply
 #' @importFrom future future
 #' @importFrom abind abind
@@ -23,7 +23,7 @@
 #' @importFrom RcppBessel bessel_k
 #' @importFrom RcppParallel RcppParallelLibs
 #' @importFrom lubridate tz days weeks years `%m+%`
-#' @importFrom utils tail head data
+#' @importFrom utils tail head data combn
 
 "_PACKAGE"
 

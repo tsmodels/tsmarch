@@ -1,17 +1,23 @@
 ---
-title: "Feasible Multivariate GARCH Model"
+title: "Feasible Multivariate GARCH Models"
 author: "Alexios Galanos"
 date: "`r Sys.Date()`"
 output: 
-    rmarkdown::html_vignette:
-        code_folding: hide
-        citation_package: natbib
+    pdf_document:
         toc: yes
+        extra_dependencies: ["amsmath"]
+        number_sections: yes
+link-citations: yes
+colorlinks: true
+linkcolor: red
+urlcolor: teal
+citecolor: teal
+toccolor: "teal"
 bibliography-style: apalike
 natbiboptions: round
 bibliography: tsmarch.bib
 vignette: >
-  %\VignetteIndexEntry{Feasible Multivariate GARCH Model}
+  %\VignetteIndexEntry{Feasible Multivariate GARCH Models}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -26,81 +32,818 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Introduction
+# Introduction {#sec-introduction}
 
 The `tsmarch` package represents a re-write and re-think of the models in 
 `rmgarch`. It is written using simpler S3 methods and classes, has a cleaner 
 code base, extensive documentation and unit tests, provides speed gains by 
-making use of parallelization in both R and in the C++ code via `RcppParallel`, 
-and works with the new univariate GARCH package `tsgarch`.
+making use of parallelization in both R (via the `future` package) and in the 
+C++ code (via `RcppParallel` package), and works with the new univariate GARCH 
+package `tsgarch`.
+
 To keep things simple, similar to the approach adopted in `tsgarch`, conditional
 mean dynamics are not included. Since the distributions are location/scale invariant,
 the series must be pre-filtered for conditional mean dynamics before submitting
-the data, and can be added back into the output post-computation. The prediction
-routine will always return a zero-mean simulated distribution which can then
-be shifted by the conditional mean forecast calculated outside this package.
+the data, but there is an option to pass the conditional_mean (`cond_mean`) as
+an argument in both the setup specification, filtering, prediction and simulation
+methods so that it is incorporated into the output of various methods at each
+step of the way. Alternatively, the user can location shift (re-center) the
+simulated predictive distribution matrix by the pre-calculated conditional 
+mean forecast.
+
+The nature of the models implemented allows for separable dynamics in estimation
+which means that individual series have univariate dynamics which can be estimated
+in parallel. However, the drawback to this is that for standard errors a partitioned
+Hessian must be calculated which may be very time consuming. While the package defaults
+to the use of OPG (outer of product of gradients) for standard errors which is fast,
+there is always the option to calculate the full partitioned Hessian for other
+types of standard error estimators. 
 
 The next sections provide a detailed overview of each of the 3 models available,
-namely the Dynamic Correlation GARCH model of , the Copula-DCC model and the
-Generalized Orthogonal GARCH model.
+namely the Dynamic Correlation GARCH model of @Engle2002 (**DCC**), the Copula-DCC model 
+(see @Patton2009 and @Ausin2010) (**CGARCH**) and the Generalized Orthogonal GARCH model 
+with multivariate affine Generalized Hyperbolic Distribution (see @Chen2007 and
+@Broda2009) (**GOGARCH**).
 
-# Dynamic Conditional Correlation (`dcc`)
 
-The DCC model decomposes the dynamics of the conditional covariance into the 
-conditional standard deviations and correlations, so that it may be expressed 
-in such a way that the univariate and multivariate dynamics may be separated, 
-thus easing the estimation process. The equation for the conditional covariance
-can be represented as:
+# Covariance Decomposition Models {#sec-cd1}
 
-$$
-\bf{H_t} = \bf{D_t}\bf{R}\bf{D_t} = {\rho _{ij}}\sqrt {{h_{iit}}{h_{jjt}}},
-$$
+The covariance decomposition type models decompose the dynamics of the conditional 
+covariance into the conditional standard deviations and correlations, so that 
+they may be expressed in such a way that the univariate and multivariate 
+dynamics may be separated, thus easing the estimation process. This decomposition
+allows a great deal of flexibility by defining individual univariate dynamics
+for each marginal series, and separate dynamics for the conditional correlation,
+using a 2-stage estimation process. 
 
-where $\bf{D_t} = diag(\sqrt {h_{11,t}} ,...,\sqrt{h_{nn,t}})$,
-and $\bf{R}$ is the positive definite constant conditional correlation matrix.
+
+## Constant Correlation {#sec-cd1-ccc}
+
+In the Constant Conditional Correlation (**CCC**) model of @Bollerslev1990 the 
+equation for the conditional covariance can be represented as:
+
+\begin{equation}
+H_t = D_t R D_t = \rho_{ij}\sqrt{h_{iit}h_{jjt}},
+\label{eq:1}
+\end{equation}
+
+where $D_t = diag(\sqrt {h_{11,t}} ,...,\sqrt{h_{nn,t}})$,
+and $R$ is the positive definite constant correlation matrix.
+
 The conditional variances, $h_{ii,t}$, which can be estimated separately,
-can be written in vector form based on GARCH(p,q) models:
+usually admit some type of GARCH(p,q) model, but can be generalized to any
+admissible model for the variance dynamics.
 
-$$
-{h_t} = \omega  + \sum\limits_{i = 1}^p {\bf{A_i}{\varepsilon _{t - i}} \odot {\varepsilon _{t - i}} + } \sum\limits_{i = 1}^q {\bf{B}_i}{h_{t - i}}
-$$
+The conditions for the positivity of the covariance matrix $H_t$ are 
+that $R$ is positive definite and the diagonal elements of $D_t$,
+$h_{ii,t}$, are positive. 
 
-where $\omega  \in {\mathbb{R}^n}$, $\bf{A}_i$ and $\bf{B}_i$ are $N\times N$
-diagonal matrices, and $\odot$ denotes the Hadamard operator. The conditions for
-the positivity of the covariance matrix $\bf{H}_t$ are that $\bf{R}$ is positive
-definite, and the elements of $\omega$ and the diagonal elements of the matrices
-$\bf{A}_i$ and $\bf{B}_i$ are positive
+Formally, the model may be represented as follow:
+
+\begin{equation}
+\begin{aligned}
+y_{t}&=\mu_{t}+\varepsilon_{t},\varepsilon_{t}\sim N\left({0,\Sigma_{t}}\right)\\
+\Sigma_{t}&=D_{t}RD_{t}\\
+z_{t}&=D_{t}^{-1}\varepsilon_{t}\\
+LL_{t}\left(\theta\right)&=\frac{1}{2}\left(\log\left(2\pi\right)+2\log\left|D_t\right|+\log\left|R\right|+z'_tR^{-1}z'_t\right)
+\end{aligned}
+\label{eq:2}
+\end{equation}
 
 
-# Generalized Orthogonal GARCH Model (`gogarch`)
+where $y_t$ is a vector representing the series values at time $t$, $\mu_t$ a vector
+of the conditional mean at time t for each series, $\varepsilon_t$ a vector of zero mean
+residuals which have a multivariate normal distribution with conditional covariance
+$\Sigma_t$, and $LL_t\left(\theta\right)$ is the log-likelihood at time $t$ given
+a parameter vector $\theta$ of univariate GARCH (or any other model) parameters. 
+The constant correlation matrix $R$ is usually approximated by it's sample counterpart as
 
-The GOGARCH model in the `tsmarch` package is based on the approach described
-in @Chen2007, @Broda2009 and @Ghalanos2015. The steps in estimating this model are as follows:
+\begin{equation}
+R = \frac{1}{T}\sum\limits_{t=1}^{T}{z_t z_t'}
+\end{equation}
 
-1. Filter the data for conditional mean dynamics ($\mu_{i,t}$).
+where $z_t$ is the vector of GARCH standardized residuals at time $t$.
+
+## Dynamic Conditional Correlation {#sec-cd1-dcc}
+
+Allowing the correlation to be time varying, whilst retaining the 2-stage separation
+of dynamics, creates an additional challenge to the positive definiteness constraint
+at each point in time for the conditional correlation. @Engle2002 proposed the 
+following proxy process :
+
+\begin{equation}
+\begin{aligned}
+Q_t &= \bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-j}z'_{t-j}-\bar Q\right)} +  \sum\limits_{j=1}^{p}{b_j\left(Q_{t-j}-\bar Q\right)}\\
+ &= \left(1 -  \sum\limits_{j=1}^{q}{a_j} -  \sum\limits_{j=1}^{p}{b_j}\right)\bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-k}z'_{t-j}\right)} + \sum\limits_{j=1}^{p}{b_j Q_{t-j}}
+\end{aligned}
+\label{eq:3}
+\end{equation}
+
+
+where $a_j$ and $b_j$ are non-negative coefficients with the constraint that they sum to less than 1 for stationarity and positive definiteness, and
+$\bar Q$ is the unconditional matrix of the standardized residuals $z_t$. To recover $R_t$, the following re-scaling operation is performed:
+
+\begin{equation}
+R_t = \text{diag}\left(Q_t\right)^{-1/2}Q_t\text{diag}\left(Q_t\right)^{-1/2}
+\label{eq:4}
+\end{equation}
+
+Under the assumption that $\varepsilon_t\sim N\left(0,\Sigma_t\right)$, the log-likelihood is:
+\begin{equation}
+\begin{aligned}
+LL_t\left(\theta\right) &= \frac{1}{2}\left(\log\left(2\pi\right) + 2\log\left|D_t\right| + z`_t z_t\right) - \frac{1}{2}\left(z`_t z_t + \log\left|R_t\right| + z`_t R^{-1}_t z'_t\right)\\
+ &= LL_{V,t}(\phi) + LL_{R,t}\left(\psi|\phi\right)
+\end{aligned}
+\label{eq:5}
+\end{equation}
+
+where $LL_{V,t}(\phi)$ is the log-likelihood of the conditional variances given the 
+GARCH parameters $\phi$, and $LL_{R,t}\left(\psi|\phi\right)$ is the log-likelihood of the 
+conditional correlation given the DCC parameters $\psi|\phi$ (conditioned on the 
+GARCH parameters).
+
+## Estimation {#sec-cd1-estimation}
+
+Estimation of the CCC and DCC models is done in 2 steps. The first step is to estimate the
+conditional variances for each series using a univariate GARCH model. The univariate models
+do not need to conform to the any single type of dynamics, but can be any admissible model.
+The conditional variances are then used to standardize the residuals which are then used to
+estimate the conditional correlation matrix. Since the first step is separable, it can be 
+done in parallel for each series. After considerable experimentation, it was chosen to avoid 
+the use of TMB for automatic differentiation and instead use numerical derivatives for 
+the second stage estimation due to speed considerations, and observing that there was little
+gain in terms of accuracy.
+
+
+## Standard Errors {#sec-cd1-se}
+
+Since estimation is performed in 2 stages, the log-likelihood is the sum of these
+2 stages. More specifically, the second stage log-likelihood is estimated conditioning
+on the parameters of the first stage. Details of the assumptions behind this and 
+the arguments for the asymptotic distribution of the estimates are put forth 
+in @Engle2001, who posit that the asymptotic distribution of the 2-stage DCC model 
+estimates with parameters $\theta = \left(\phi, \psi\right)$ is:
+
+\begin{equation}
+\sqrt{T}\left(\hat\theta_T - \hat\theta_0\right) \overset{\text{A}}{\sim} {N\left(0, B^{-1}_0 M_0 {B'}^{-1}_0\right)}\\
+\label{eq:6}
+\end{equation}
+
+where:
+
+\begin{equation}
+B_0 = \begin{bmatrix}
+\nabla_{\phi\phi} \ln f_1(\phi_0) & 0 \\
+\nabla_{\phi\psi} \ln f_2(\phi_0) & \nabla_{\psi\psi} \ln f_2(\theta_0)
+\end{bmatrix} = \begin{bmatrix}
+B_{11} & 0 \\
+B_{12} & B_{22}
+\end{bmatrix}
+\label{eq:7}
+\end{equation}
+
+and
+
+\begin{equation}
+M_0 = \text{var} \left[ \sum_{t=1}^{T} \left\{ T^{-1/2} \nabla_{\phi}' \ln f_1(r_t, \phi_0), T^{-1/2} \nabla_{\psi}' \ln f_2(r_t, \phi_0, \psi_0) \right\} \right] = \begin{bmatrix}
+M_{11} & M_{12} \\
+M_{12} & M_{22}
+\end{bmatrix}
+\label{eq:8}
+\end{equation}
+
+where $B_0^{-1}$ and $M_0$ are the Hessian and the covariance matrix of the score vector respectively, also called the bread and meat of the sandwich estimator.
+In the case of this 2 stage estimation procedure, the Hessian is partitioned into 4 blocks, $B_{11}$, $B_{12}$, $B_{22}$ and $M_{11}$, $M_{12}$, $M_{22}$, where $B_{11}$ and $M_{11}$ are the Hessian and covariance matrix of the first stage log-likelihood, and $B_{22}$ and $M_{22}$ are the Hessian and covariance matrix of the second stage log-likelihood. $B_{12}$ and $M_{12}$ are the cross derivatives of the first and second stage log-likelihoods.
+
+Because the Hessian is partitioned, the calculation of the standard errors is more computationally intensive than the standard OPG (outer product of gradients) method. The package defaults to the OPG method, but the user can choose to calculate the full partitioned Hessian if they so wish, for which parallel functionality has been implemented to provide some speed gains. The package uses numerical derivatives for the second stage estimation, as well as the calculation of the standard errors. When the partitioned Hessian is present, a number of additional
+estimators become available including the those of the QML and HAC (using the bandwidth of @Newey1994) type.
+
+
+## Distributions
+
+The original DCC model was based on the assumption that the residuals are normally distributed, as shown in Equations \eqref{eq:2} and \eqref{eq:5}.
+
+However, this is not always the case in practice. There are 2 possible approaches to this problem. The first is to use a different multivariate 
+distribution for the DCC model and the second is to use a copula approach.
+
+### Multivariate Student Distribution
+
+Introducing a multivariate distribution which requires estimation of higher moment parameters implies that the univariate margins 
+must also have the same distribution and usually the same higher moment parameters. This in turn implies the need for joint estimation 
+of all dynamics in the model with specific constraints on the joint parameters. This is computationally intensive and may not be feasible
+for anything but a few series. However, it may be possible to estimate the higher moment parameters using QML (quasi-maximum likelihood)
+for the first stage (essentially use a normal distribution for the residuals), and then use these estimates in the second stage
+estimation. This is the approach taken in the `tsmarch` package when using the multivariate Student distribution with log-likelihood
+equal to:
+
+\begin{equation}
+\begin{aligned}
+LL_t\left(\theta, \nu| \phi\right) & = \log\Gamma\left(\frac{\nu + k}{2}\right) - \log\Gamma\left(\frac{\nu}{2}\right) -\frac{k}{2}\log\left(\pi\left(\nu - 2\right)\right)\\ 
+&- \frac{1}{2}\log\left|R_t\right| - \frac{\nu + 2}{2}\log\left(1 + \frac{1}{\nu-2}z_t' R_t^{-1} z_t\right)
+\end{aligned}
+\label{eq:9}
+\end{equation}
+
+where $\nu$ is the degrees of freedom parameter of the Student distribution, and $k$ is the number of series. 
+The assumption post-estimation is that the marginal distribution of each series is Student with the same 
+degrees of freedom parameter $\nu$.
+
+### Copula Distribution (`cgarch`)
+
+The copula approach is a more general approach which allows for the use of different marginal distributions for each series.
+In simple terms, the copula is a function which links the marginal distributions to the joint distribution by applying
+a transformation to the marginal residuals to make them uniformly distributed. The joint distribution is then obtained by
+applying the inverse distribution of the copula to the uniform marginals.
+
+Specifically:
+
+\begin{equation}
+\begin{aligned}
+u_t & = C\left(F_1\left(z_{1,t}\right),\ldots,F_k\left(z_{k,t}\right)\right)\\
+\epsilon_t & = F^{-1}\left(u_t\right)
+\end{aligned}
+\label{eq:10}
+\end{equation}
+
+where $F$ is the marginal distribution function, $F^{-1}$ is the inverse of the multivariate distribution function, 
+$C$ is the copula function, and $u_t$ is the vector of uniform marginals. The transformation of the margins
+is called the Probability Integral Transform (PIT). There are a number of ways to transform the marginals to uniform 
+distributions, including a parametric transform (also called the Inference-Functions-For-Margins by @Joe1997), 
+using the empirical CDF (also called pseudo-likelihood and investigated by @Genest1995) and the semi-parametric 
+approach (see @Davison1990). All three approaches are implemented in the `tsmarch` package. The package implements
+both a Normal and Student copula, with either constant or dynamic correlation. For the Student Copula, the 
+log-likelihood is given by:
+
+
+\begin{equation}
+\begin{aligned}
+LL_t\left(\theta\right) & = \sum\limits_{i=1}^{k} \left( -\frac{1}{2} \log h_{i,t} + \log f_{i,t}(z_{i,t}) \right) + \log c_t\left(u_{i,t},\ldots, u_{k,t}\right)\\
+& = LL_{V,t}\left(\phi\right) + LL_{R,t}\left(\psi,\eta|\phi\right)
+\end{aligned}
+\label{eq:11}
+\end{equation}
+
+where
+
+\begin{equation}
+\log c_t\left(u_{1,t}, \ldots, u_{k,t}\right) = \log f_t\left( F_i^{-1}\left(u_{1,t}|\eta\right), \ldots, F_i^{-1}\left(u_{k,t}|\eta\right) | R_t,\eta \right) - \sum\limits_{i=1}^{k} \log f_i\left( F_i^{-1}(u_{i,t})|\eta \right)
+\label{eq:12}
+\end{equation}
+
+with $u_{i,t} = F_{i,t}\left(\varepsilon_{i,t}|\phi_i \right)$ is the PIT transformation of each series by it's conditional distribution estimated in the first stage
+GARCH process by any choice of dynamic and distributions, $F_i^{-1}\left(u_{i,t}|\eta\right)$ represents the quantile transformation of the uniform marginals 
+subject to a common shape parameter of the multivariate Student Copula, and $f_t\left( F_i^{-1}\left(u_{1,t}|\eta\right), \ldots, F_i^{-1}\left(u_{k,t}|\eta\right) | R_t,\eta \right)$
+is the joint density of the Student Copula with shape parameter $\eta$ and correlation matrix $R_t$.
+
+Therefore, the log-likelihood is composed of essentially 3 parts: the first stage univariate models, the univariate PIT transformation and inversion given the Copula distribution and the second stage multivariate model.
+
+The correlation can be modeled as either constant or dynamic in the copula model. The dynamic correlation is modeled in the same way as the DCC model, but the residuals are transformed to uniform marginals before estimating the correlation. Appendix \ref{sec-appendix-correlation} provides a more detailed overview for the constant correlation case.
+
+Essentially, the difference between the standard DCC type model and the one with a Copula distribution involves
+the PIT transformation step, which is reflected in the inference (standard errors), forecasting and simulation 
+methods for this model.
+
+
+## Generalized Dynamics {#sec-cd1-extensions}
+
+A number of extensions to the DCC model have been proposed in the literature. These include the use
+of asymmetric and generalized dynamics. @Cappiello2006 generalize the DCC model with the introduction 
+of the Asymmetric Generalized DCC (AGDCC) where the dynamics of $Q_t$ now become:
+
+\begin{equation}
+Q_t = \left(\bar Q - A'\bar Q A - B'\bar Q B - G'\bar N G\right) + \sum\limits_{j=1}^{q}{A'_j z_{t-j}z'_{t-j}A_j} +  \sum\limits_{j=1}^{q}{G'_j{\bar z}_{t-j}{\bar z}'_{t-j}G_j} + 
+ \sum\limits_{j=1}^{p}{B'_j Q B_j}
+\label{eq:13}
+\end{equation}
+
+where A, B and G are the $N\times N$ parameter matrices, $\bar z_t$ are the zero-threshold standardized residuals (equal to $z_t$ when less than zero else zero otherwise), 
+$\bar Q$ and $\bar N$ are the unconditional matrices of $z_t$ and $\bar z_t$ respectively. The generalization allows for cross dynamics between the standardized residuals,
+and cross-asymmetric dynamics. However, this comes at the cost of increased computational complexity making it less feasible for large scale systems. Additionally, 
+covariance targeting in such a high dimensional model where the parameters are no longer scalars creates difficulties in imposing positive definiteness constraints.
+The `tsmarch` package does not implement this specific model, but instead a scalar parameter is introduced to allow for asymmetric dynamics in the DCC model (**aDCC**).
+
+
+## Forecasting and Simulation {#sec-cd1-forecasting}
+
+Because of the non linearity of the DCC evolution process, the multi-step ahead forecast of the correlation cannot be directly solved.
+@Engle2001 provide a couple of suggestions which form a reasonable approximation. In the `tsmarch` package we instead use a 
+simulation approach, similar to the other packages in the `tsmodels` universe, and in doing so generate a simulated distribution
+of the h-step ahead correlation and covariance. This also generalizes to the copula model which does not have a closed form solution.
+
+\begin{equation}
+\begin{aligned}
+Q_t & = \bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-j}z'_{t-j}-\bar Q\right)} +  \sum\limits_{j=1}^{p}{b_j\left(Q_{t-j}-\bar Q\right)}\\
+R_t & = \text{diag}\left(Q_t\right)^{-1/2}Q_t\text{diag}\left(Q_t\right)^{-1/2}\\
+z_t & = E \Lambda^{1/2} \epsilon_t
+\end{aligned}
+\label{eq:14}
+\end{equation}
+
+where $\epsilon_t$ is a vector of standard normal random variables, $\Lambda$ is the diagonal matrix of eigenvalues of $R_t$ and $E$ is the matrix of 
+eigenvectors of $R_t$, such that:
+
+\begin{equation}
+R_t = E \Lambda E'
+\label{eq:15}
+\end{equation}
+
+For the multivariate Student distribution, the draws for $z_t$ are generated as :
+
+\begin{equation}
+z_t =  E \Lambda^{1/2} \epsilon_t \sqrt{\frac{\nu}{W}}
+\label{eq:16}
+\end{equation}
+
+where $W$ is a random variable from a chi-squared distribution with $\nu$ degrees of freedom. For $\epsilon_t$, it is also possible to instead use the empirical standardized and de-correlated residuals, an option which is offered in the package.
+
+## News Impact Surface
+
+
+
+
+## Critique {#sec-cd1-critique}
+
+The DCC model has come under a considerable amount of criticism in the literature, 
+particularly by @Caporin2008 who argue that consistency and asymptotic 
+Normality of the estimators has not been fully established, and proposes
+instead the indirect DCC model (essentially a scalar BEKK) which models directly
+the conditional covariance matrix and forgoes univariate GARCH dynamics.
+
+@Aielli2013 also points out that the estimation of $Q_t$ as the empirical counterpart of the correlation matrix
+of $z_t$ is inconsistent since $E\left[z_t z_t\right] = E\left[R_t\right] \neq E\left[Q_t\right]$.
+They propose a DCC (cDCC) model which includes a corrective step which eliminates 
+this inconsistency, albeit at the cost of targeting which is not allowed.
+
+
+# Generalized Orthogonal GARCH Model (`gogarch`) {#sec-gogarch}
+
+The GO-GARCH model in the `tsmarch` package is based on the approach described
+in @Chen2007, @Broda2009 and @Ghalanos2015. Unlike the covariance decomposition 
+models, the Generalized Orthogonal GARCH model is akin to a full distributional 
+decomposition model rather than just the covariance, since it makes use of
+higher moments to achieve independent margins from which univariate models
+can then be used to estimate the conditional dynamics (see @Schmidt2006 for
+details on the multivariate affine Generalized Hyperbolic distribution).
+
+Formally, the stationary return series $y_t$ follows a linear dynamic model:
+
+\begin{equation}
+\begin{aligned}
+y_t &= \mu_t + \varepsilon_t\\
+\varepsilon_t &= A f_t\\
+\end{aligned}
+\label{eq:17}
+\end{equation}
+
+where $A$ is an invertible and constant mixing matrix, which transforms the
+independent components $f_t$ back into the residuals $\varepsilon_t$. This 
+can be further decomposed into de-whitening and rotation matrices, $\Sigma^{1/2}$
+and $U$ respectively:
+
+\begin{equation}
+A = \Sigma^{1/2}U
+\label{eq:18}
+\end{equation}
+
+where $\Sigma$ is the unconditional covariance matrix of the residuals and performs
+the role of de-correlating (whitening) the residuals prior to rotation (independence). It is
+at this juncture where dimensionality reduction may also be performed, by
+selecting the first $m$ principal components of the residuals. In that case 
+$\varepsilon_t \approx \hat \varepsilon_t = A f_t$ since the dimensionality
+reduced system only approximates the original residuals.
+
+The rotation matrix $U$ is calculated through the use of Independent Component 
+Analysis (ICA) which is a method separating multivariate mixed signals into additive statistically 
+independent and non-Gaussian components\footnote{Technically,
+up to 1 component may be Gaussian.} (see @Hyvarinen2000). The algorithm used
+in the `tsmarch` package for ICA is based on the RADICAL algorithm 
+of @Learned2003 which uses an efficient entropy estimator (due to @Vasicek1976) 
+which is robust to outliers and requires no strong characterization assumptions 
+about the data generating process.\footnote{To speed estimation, parts of the ICA algorithm
+are parallelized in C++ using `RcppParallel` and hence benefits from multi-threading.}
+
+The independent components $f_t$ can be further decomposed as:
+
+\begin{equation}
+f_t = H_t^{1/2} z_t
+\label{eq:19}
+\end{equation}
+
+where $H_t$ is the conditional covariance matrix of the independent components
+with $H_t = E[f_t f_t' | \mathfrak{F}_{t-1}]$, being a diagonal matrix
+with elements $(h_{1,t},\ldots,h_{n,t} )$ which are the conditional variances of
+the factors, and $z_t = (z_{1,t},\ldots,z_{n,t})'$. The random variable $z_{i,t}$
+is independent of $z_{jt-s}$ $\forall j \neq i$ and $\forall s$,
+with $E[z_{i,t}|\mathfrak{F}_{t-1}]=0$ and $E[z_{i,t}^2]=1$, implying that 
+$E[f_t|\mathfrak{F}_{t-1}] = \mathbf{0}$ and $E[\varepsilon_t|\mathfrak{F}_{t-1}] = \mathbf{0}$. 
+The factor conditional variances, $h_{i,t}$ can be modeled as a GARCH-type process. 
+The unconditional distribution of the factors is characterized by:
+
+\begin{equation}
+E[f_t] = \mathbf{0} \quad  E[f_t f_t'] = I_n
+\label{eq:20}
+\end{equation}
+
+which, in turn, implies that:
+
+\begin{equation}
+E[\varepsilon_t] = \mathbf{0} \quad E[\varepsilon_t\varepsilon_t'] = A A'.
+\label{eq:21}
+\end{equation}
+
+It then follows that the return series can be expressed as:
+
+\begin{equation}
+y_t = \mu_t + A H_t^{1/2} z_t.
+\label{eq:22}
+\end{equation}
+
+The conditional covariance matrix, $\Sigma_t \equiv E[(y_t -\mu_t)(y_t - \mu_t)'|\mathfrak{F}_{t-1}]$
+is given by $\Sigma_t  =  A H_t A'$.
+
+The Orthogonal Factor model of @Alexander2002\footnote{When $U$
+is restricted to be an identity matrix, the model reduces to the Orthogonal
+Factor model.} which uses only information in the covariance matrix, leads to
+uncorrelated components but not necessarily independent unless assuming a
+multivariate normal distribution. However, while whitening is not sufficient
+for independence, it is nevertheless an important step in the pre-processing of
+the data in the search for independent factors, since by exhausting the second
+order information contained in the covariance matrix it makes it easier to infer
+higher order information, reducing the problem to one of rotation (orthogonalization).
+
+## Estimation
+
+The estimation of the GO-GARCH model is performed in 3 steps.
+
+1. Filter the data for conditional mean dynamics ($\mu_{i,t}$). Similar to the DCC model, 
+this is performed outside the system.
 2. Perform Independent Component Analysis (ICA) on the residuals to separate out the
 additive and statistically independent components.
-3. Estimate the conditional distribution of each independent component.
-4. Recombine the
+3. Estimate the conditional distribution of each independent component using an
+admissible univariate model. In the `tsmarch` package we use the `tsgarch` package
+for estimating the GARCH model for each factor with either a Generalized Hyperbolic 
+(`gh`) or Normal Inverse Gaussian (`nig`) distribution\footnote{Technically, the
+`nig` distribution is a special case of the `gh` distribution with $\lambda = -0.5$,
+but since is possesses some nice properties, it is included as a separate distribution
+for speed purposes.}
+
+The log-likelihood of the GO-GARCH model is composed of the individual log-likelihoods
+of the univariate independent factor GARCH models and a term for the mixing matrix:
+
+\begin{equation}
+LL_t\left(\theta, A\right)  = \log\left|A^{-1}\right| + \sum\limits_{i=1}^{n} \log\left(GH_{\lambda_i}\left(\theta_i\right)\right)
+\label{eq:23}
+\end{equation}
+
+where $GH_{\lambda_i}$ is the Generalized Hyperbolic distribution with shape parameter
+$\lambda_i$ for the $i$-th factor. Since the inverse of the mixing matrix is the un-mixing matrix
+$A^{-1} = W = K'U$, and since the determinant of $U$ is 1 ($|U|=1$), the the log-likelihood
+simplifies to:
+
+\begin{equation}
+LL_t\left(\theta, A\right)  = \log\left|K\right| + \sum\limits_{i=1}^{n} \log\left(GH_{\lambda_i}\left(\theta_i\right)\right)
+\label{eq:24}
+\end{equation}
+
+In the presence of dimensionality reduction, $K$ is no longer square, we cannot 
+directly compute its determinant. Instead, we use the determinant of  $K K'$ , 
+to reflect the combined effect of whitening and dimensionality reduction:
+
+\begin{equation}
+LL_t\left(\theta, A\right)  = \log\left|K K'\right| + \sum\limits_{i=1}^{m} \log\left(GH_{\lambda_i}\left(\theta_i\right)\right)
+\label{eq:25}
+\end{equation}
 
 A key advantage of this approach is the ability to estimate multivariate dynamics 
-using only univariate methods, providing for feasible estimation of large 
-scale systems. This comes with certain key assumptions; the independent sub-components 
-have at most one that is Gaussian; independence across time is static. The conditional
-univariate distributions must be chosen from the same distribution family (unlike the
-Copula model), and posses certain properties which
+using only univariate methods, providing for feasible estimation of large scale systems. 
+The speed advantage of this approach does not come for free, as there is a corresponding
+need for memory to handle the parallelization offered, particularly when generating
+higher co-moment matrices.
 
-Contrary to the principal component GARCH model which only assumes uncorrelated components, 
-the GOGARCH model enforces independence which allows for the use of non Gaussian conditional
-distributions for the margins making it a better candidate for most practical applications
-where departure from normality is widespread.
+## Co-Moments
+
+The linear affine representation of the GO-GARCH model provides for a 
+closed-form expression for the conditional co-moments. The first 3 co-moments
+are given by:
+
+\begin{equation}
+\begin{aligned}
+M^2_t &= A M^2_{f,t} A'\\
+M^3_t &= A M^3_{f,t} \left(A' \otimes A'\right)\\
+M^4_t &= A M^4_{f,t} \left(A' \otimes A' \otimes A'\right)
+\end{aligned}
+\label{eq:26}
+\end{equation}
+
+where $M_{f,t}^2$, $M_{f,t}^3$ and $M_{f,t}^4$ are the $(N \times N)$ conditional
+covariance, $(N \times N^2)$ the conditional third co-moment matrix and 
+the $(N \times N^3)$ conditional fourth co-moment matrix of the factors, respectively, 
+represented as unfolded tensors\footnote{The package allows to extract these tensors
+in both folded and unfolded form.}
+
+These are calculated from the univariate factor dynamics, and defined as:
+
+\begin{eqnarray}
+M_{f,t}^3 & =&
+\begin{bmatrix}
+M_{1,f,t}^3,M_{2,f,t}^3,\ldots,M_{n,f,t}^3
+\end{bmatrix} \label{eq:27}\\
+M_{f,t}^4 & = &
+\begin{bmatrix}
+M_{1,1,f,t}^4,M_{1,2,f,t}^4,\ldots,M_{1,n,f,t}^4|\ldots|M_{n,1,f,t}^4,M_{n,2,f,t}^4,\ldots,M_{n,n,f,t}^4
+\end{bmatrix}\label{eq:28}
+\end{eqnarray}
+
+where $M_{k,f,t}^3, k=1,\ldots,n$ and $M_{k,l,f,t}^4, k,l=1,\ldots,n$
+are the $N\times N$ sub-matrices of $M_{f,t}^3$ and $M_{f,t}^4$,
+respectively, with elements
+
+\begin{equation}
+\begin{aligned}
+m_{i,j,k,f,t}^3 & = & E[f_{i,t}f_{j,t}f_{k,t}|\mathfrak{F}_{t-1}] \\
+m_{i,j,k,l,f,t}^4 & = & E[f_{i,t}f_{j,t}f_{k,t}f_{l,t}|\mathfrak{F}_{t-1}].
+\end{aligned}
+\label{eq:29}
+\end{equation}
+
+Since the factors $f_{i,t}$ can be decomposed as $z_{i,t}\sqrt{h_{i,t}}$, and given
+the assumptions on $z_{i,t}$ then $E[f_{i,t}f_{j,t}f_{k,t}|\mathfrak{F}_{t-1}] = 0$.
+It is also true that for $i \neq j\neq k \neq l$ $E[f_{i,t}f_{j,t}f_{k,t}f_{l,t}|\mathfrak{F}_{t-1}] = 0$
+and when $i=j$ and $k=l$,
+
+\begin{equation}
+E[f_{i,t}f_{j,t}f_{k,t}f_{l,t}|\mathfrak{F}_{t-1}]  =  h_{i,t}^2 h_{k,t}^2.
+\label{eq:30}
+\end{equation}
+
+Thus, under the assumption of mutual independence, all elements in the conditional
+co-moments matrices with at least 3 different indices are zero. Finally, standardizing
+the conditional co-moments one obtains conditional co-skewness and co-kurtosis of $y_t$,
+
+\begin{equation}
+\begin{aligned}
+  S_{i,j,k,t}  &= \frac{m_{i,j,k,t}^3}{({\sigma_{i,t}}{\sigma_{j,t}}{\sigma _{k,t}})}, \\
+  K_{i,j,k,l,t} &= \frac{m_{i,j,k,l,t}^4}{({\sigma_{i,t}}{\sigma_{j,t}}{\sigma_{k,t}}{\sigma _{l,t}})}
+\end{aligned}
+\label{eq:31}
+\end{equation}
+
+where $S_{i,j,k,t}$ represents the series co-skewness between elements
+$i,j,k$ of $y_t$, $\sigma_{i,t}$ the standard deviation of $y_{i,t}$, and
+in the case of $i=j=k$ represents the skewness of series $i$ at time $t$, and
+similarly for the co-kurtosis tensor $K_{i,j,k,l,t}$. Two natural applications
+of return co-moments matrices are Taylor type utility expansions in portfolio
+allocation and higher moment news impact surfaces.
+
+The weighted moments are calculated as follows:
+
+\begin{equation}
+\begin{aligned}
+  \mu_{1,t} &= w_t` M^1_{t}\\
+  \mu_{2,t} &= w_t' M^2_{t} w_t\\
+  \mu_{3,t} &= w_t' M^3_{t} \left(w_t \otimes w_t\right)\\
+  \mu_{4,t} &= w_t' M^4_{t} \left(w_t \otimes w_t \otimes w_t\right)\\
+\end{aligned}
+\label{eq:32}
+\end{equation}
+
+where $w_t$ is the vector of weights at time $t$. Using the vectorization operator
+$vec$ the weighted moments can be re-written compactly as:
+
+\begin{equation}
+\mu_k = \text{vec}\left(M_k\right)'\underbrace{(w_t \otimes \ldots \otimes w_t)}_{k \text{times}}
+\label{eq:33}
+\end{equation}
+
+One application of this is in the calculation of the Constant Absolute Risk Aversion utility
+function, using a Taylor series expansion as in @Ghalanos2015:
+
+\begin{equation}
+E_{t-1}\left[U\left(W_t\right)\right] = E_{t-1}\left[-\exp\left(-\eta \bar W_t\right)\right] \approx -\exp\left(-\eta \bar W_t\right)\left[1 + \frac{\eta}{2}\mu_{2,t} - \frac{\eta^3}{3!}\mu_{3,t} + \frac{\eta^4}{4!}\mu_{4,t}\right]
+\label{eq:34}
+\end{equation}
+
+where $\eta$ represents the investor’s constant absolute risk aversion, with higher (lower) values representing higher (lower) aversion, and $\bar W_t = w'_t E_{t-1}\left[y_t\right]$ is the expected portfolio return at time $t$. Note that this approximation includes two moments more than the mean-variance criterion, with
+the skewness and kurtosis are directly related to investor preferences (dislike) for odd (even) moments, under certain mild assumptions given in 
+@Scott1980.
 
 
-The speed advantage of this approach does not come free, as there is a corresponding
-need for memory to handle the parallelization offered.
+## Weighted Distribution
 
-There are 2 key outputs from this approach. One is the generation of conditional co-moment
-matrices, and the other is the conditional weighted (portfolio) density, both of which
-have wide applications in portfolio and risk management.
+The weighted conditional density of the model may be obtained via the inversion of 
+the Generalized Hyperbolic characteristic function through the fast fourier transform (FFT) method 
+as in @Chen2007 or by simulation. The `tsmarch` package generates both simulated predictive
+distributions as well as the weighted $p^*$, $d^*$ and $q^*$ functions based on FFT.
+
+It should be noted that while the n-dimensional NIG distribution is closed under convolution, when the
+distributional higher moment parameters are allowed to be different across assets, as is the case here,
+this property no longer holds. 
+
+Provided that $\epsilon_t$ is a n-dimensional vector of innovations, marginally distributed as 
+1-dimensional standardized GH, the density of weighted asset returns, 
+$w_{i,t}y_{i,t}$ is:
+
+
+\begin{equation}
+w_{i,t}y_{i,t} - w_{i,t}\mu_{i,t} = \bar w_{i,t}\epsilon_{i,t}\sim \text{maGH}_{\lambda_i}\left(\bar w_{i,t}\bar\mu_{i,t},\left|\bar w_{i,t}\delta_{i,t}\right|,\frac{\alpha_{i,t}}{\left|\bar w_{i,t}\right|}, \frac{\beta_{i,t}}{\left|\bar w_{i,t}\right|}  \right)
+\label{eq:35}
+\end{equation}
+
+where $\bar w_{t}  = w'_tAH^{1/2}_t$ and hence $\bar w_{i,t}$ is the $i$-th element of this vector, $\mu_{i,t}$ is the conditional mean of series $i$ at time $t$, 
+and the parameter vector $\left(\bar \mu_{i,t}, \delta_{i,t}, \beta_{i,t}, \alpha_{i,t}, \lambda_i\right)$ represents the generalized hyperbolic distributional parameters
+which have been converted from their $\left(\rho,\zeta\right)$ parameterization used in the `tsgarch` package estimation routine. In order to obtain the weighted
+density we need to sum the individual log densities of $\epsilon_{i,t}$:
+
+\begin{equation}
+\varphi(u) = \prod\limits_{i = 1}^n {\varphi_{\bar w{\epsilon_i}}} (u) =  \exp{
+   \left(
+   \text{i}u\sum\limits_{j = 1}^d \bar\mu_j +
+   \sum\limits_{j = 1}^d
+   \left(
+   \frac{\lambda_j}{2}
+   \log{\left(\frac{\gamma}{\upsilon}\right)} + \log \left(\frac{K_{\lambda_j}(\bar\delta_j\sqrt{\upsilon})}{K_{\lambda_j}(\bar\delta_j \sqrt{\gamma})}
+   \right)
+   \right)
+   \right)
+}
+\label{eq:36}
+\end{equation}
+
+where, $\gamma  = \bar \alpha_j^2 - \bar \beta_j^2$, $\upsilon  = \bar \alpha_j^2 - {({\bar \beta_j} + {\text{i}}u)^2}$,
+and $(\bar \alpha_j, \bar \beta_j, \bar \delta_j, \bar \mu_j)$ are the scaled
+versions of the parameters $(\alpha_{i}, \beta_{i}, \delta_{i}, \mu_{i})$ as shown in \eqref{eq:35}. The density may be accurately
+approximated by FFT as follows:
+
+\begin{equation}
+{f_y}(r) = \frac{1}{2\pi}\int_{-\infty}^{+\infty}{{e^{( - \text{i}u r)}}} \varphi_y (u)\mathrm{d}u \approx \frac{1}{2\pi}\int_{ - s}^s {{e^{( - \text{i}u r)}}} \varphi_y (u)\mathrm{d}u.
+\label{eq:37}
+\end{equation}
+
+Once the density is obtained, we use smooth approximations to obtain functions for the density ($d^*$), quantile ($q^*$) and distribution ($p^*$), with random
+number generation provided by the use of the inverse transform method using the quantile function.
+
+
+
+## Factor News Impact Surface
+
+Consider the equation for the construction of the conditional covariance matrix $\Sigma_t$:
+
+\begin{equation}
+\Sigma_t = A H_t A'
+\end{equation}
+
+where $H_t$ is the diagonal conditional covariance matrix of the independent components. 
+The factor news impact covariance surface is a measure of the effect of shocks from 
+the independent factors on the conditional covariance of the returns of 
+assets $i$ and $j$ at time $t-1$. In order to construct this we first generate the
+news impact curves for all the factors using a common grid of shock values, 
+and then calculate the effect of these on the conditional covariance of the returns 
+of assets $i$ and $j$. Since the factors are independent, we simply loop through all
+pairwise combinations of these shocks\footnote{We loop through all possible combinations of
+shocks for factors k and l which were previously calculated from their respective news impact
+curves using a common grid of shock values $\{\epsilon_1,\ldots,e_z\}$} to calculate the covariance surface, keeping
+the value of the other factors constant:
+
+\begin{equation}
+\Sigma_{i,j} = a_{k,i} \cdot h_{k,k}|\epsilon_k \cdot a_{k,j} + a_{l,i} \cdot h_{l,l}|\epsilon_l \cdot a_{l,j} + \sum_{\substack{m=1 \\ m \neq k, l}}^{n} a_{m,i} \cdot h_{m,m}|{\epsilon_m=0} \cdot a_{m,j}
+\label{eq:38}
+\end{equation}
+
+where :
+
+1. $a_{k,i}$ is the loading of factor $k$ on asset $i$,
+2. $h_{k,k}|\epsilon_k$ is the conditional variance of factor $k$ from the news
+impact curve given the shock $\epsilon_k$,
+3. $a_{k,i} \cdot h_{k,k}|\epsilon_k \cdot a_{k,j}$ captures the contribution 
+of factor k to the covariance between assets i and j, based on the shock $\epsilon_k$  
+applied to factor $k$, 
+4. $a_{l,i} \cdot h_{l,l}|\epsilon_l \cdot a_{l,j}$ captures the 
+contribution of factor $l$ to the covariance between assets i and  j, based on the 
+shock  $\epsilon_l$  applied to factor l and 
+5. $\sum_{\substack{m=1 \\ m \neq k, l}}^{n} a_{m,i} \cdot s_{m,m}(0) \cdot a_{m,j}$
+captures the contributions of all other factors (except k and l), where their variances 
+are held constant at their unconditional levels (i.e., with no shocks).
+
+This means that the covariance will be affected by both the relative sign and magnitude of 
+the loadings and the relative magnitude of the variance of the factors. 
+
+The news impact surface is not restricted to the covariance matrix, but can be extended
+to the conditional co-skewness and co-kurtosis, but that is only truly meaningful when
+the higher moment distributional parameters are allowed to vary as in @Ghalanos2015.
+
+
+
+\clearpage
+
+# Methods and Classes {#sec-methods}
+
+Figures \ref{fig-dcc-diagram} and \ref{fig-gogarch-diagram} provide a visual summary
+of the main methods in the package for the DCC and GOGARCH type models. Blue boxes
+denote a method which produces a custom class which can be further manipulated
+with other methods\footnote{The tsfilter method returns an updated object of the same
+class as the `estimate` method hence has an arrow going back to that method to denote this.}, 
+whilst Appendix \ref{sec-appendix-methods} provides a summary of 
+some of the methods and output classes in the `tsmarch` package and the type of 
+parallelization they use.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.6\textwidth]{dcc_diagram.png}
+    \caption{DCC/CGARCH diagram representing function/method relationships in the package.}
+    \label{fig-dcc-diagram}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.6\textwidth]{gogarch_diagram.png}
+    \caption{GO-GARCH diagram representing function/method relationships in the package.}
+    \label{fig-gogarch-diagram}
+\end{figure}
+
+
+
+
+\clearpage
+
+# Appendix {#sec-appendix}
+
+## Correlation and Kendall's $\tau$ {#sec-appendix-correlation}
+
+Pearson’s product moment correlation $R$ totally characterizes the dependence structure in the
+multivariate Normal case, where zero correlation also implies independence, but can only characterize 
+the ellipses of equal density when the distribution belongs to the elliptical class. In the
+latter case for instance, with a distribution such as the multivariate Student, the correlation 
+cannot capture tail dependence determined by the shape parameter. Furthermore, it is not invariant
+under monotone transformations of original variables making it inadequate in many cases. An
+alternative measure which does not suffer from this is Kendall’s $\tau$ (see @Kruskal1958), based
+on rank correlations which makes no assumption about the marginal distributions but depends
+only on the copula $C$. It is a pairwise measure of concordance calculated as:
+
+\begin{equation}
+\tau(x_i, x_j) = 4 \int_0^1 \int_0^1 C\left(u_i, u_j\right) \, dC\left(u_i, u_j\right) - 1
+\label{eq:app1}
+\end{equation}
+
+For elliptical distributions, @Lindskog2003, proved that there is a one-to-one relationship between this measure
+and Pearson's correlation coefficient $\rho$ given by:
+
+\begin{equation}
+\tau(x_i, x_j) = \left( 1 - \sum_{x \in \mathbb{R}} \left( \mathbb{P}\{X_i = x\}^2 \right) \right) \frac{2}{\pi} \arcsin \rho_{ij}
+\label{eq:app2}
+\end{equation}
+
+which under certain assumptions (e.g. in the multivariate Normal case) simplifies to $$\frac{2}{\pi} \arcsin \rho_{ij}$$. Kendall's $\tau$
+is invariant under monotone transformations making it more suitable when working with non-elliptical distributions.
+A useful application arises in the case of the multivariate Student distribution where the maximum likelihood approach for
+the estimation of the correlation matrix $R$ become unfeasible for large dimensions. Instead, estimating the sample
+counterpart of Kendall's $\tau$ from the transformed margins and then translating that into a correlation matrix as detailed
+in \eqref{eq:app2} provides for a method of moments type estimator. The shape parameter $\nu$ is then estimated keeping 
+the correlation matrix constant, with little loss in efficiency.
+
+\clearpage
+## Notes on Selected Methods {#sec-appendix-methods}
+
+The table below provides a summary of selected methods, the classes they belong to, the classes they output, 
+whether they are parallelized  and the dimensions of the objects involved. For example, the tsaggrate method
+on predicted and simulated objects will return a list of length 4, with each slot having an object of class
+`tsmodel.distribution` of size $sim\times h$ representing the predictive simulatated distribution of each
+of the weighted moments generated by the model.\footnote{For the DCC and Copula DCC models only the first 2 moments
+are time varying and hence contain a simulated distribution.} The output for the `tsconvolve` method which
+is `list(h):list(sim)` means that the output is a list of length $h$ where each slot contains a list of length $sim$.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|c|c|r|}
+\hline
+\textbf{Method} & \textbf{class (in)} & \textbf{class (out)} & \textbf{future} & \textbf{RcppParallel} & \textbf{dimensions} \\ \hline
+\texttt{tscov} & (1,4,7) & \texttt{matrix} & no & no & [n, n, T] \\ \hline
+\texttt{tscov} & (2,3,5,6,8,9) & \texttt{matrix} & no & no & [n, n, h, sim] \\ \hline
+\texttt{tscoskew} & (1) & \texttt{matrix} & no & yes & [n, n\textsuperscript{2}, T] \\ \hline
+\texttt{tscoskew} & (2,3) & \texttt{matrix} & no & yes & [n, n\textsuperscript{2}, h, sim] \\ \hline
+\texttt{tscokurt} & (1) & \texttt{matrix} & no & yes & [n, n\textsuperscript{3}] \\ \hline
+\texttt{tscokurt} & (2,3) & \texttt{matrix} & no & yes & [n, n\textsuperscript{3}, h, sim] \\ \hline
+\texttt{tsconvolve} & (1) & \texttt{gogarch.fft} & yes & no & list(T) \\ \hline
+\texttt{tsconvolve} & (2,3) & \texttt{gogarch.fftsim} & yes & no & list(h):list(sim) \\ \hline
+\texttt{tsaggregate} & (1,4,7) & \texttt{list} & no & yes & 4:n \\ \hline
+\texttt{tsaggregate} & (2,3,5,6,8,9) & \texttt{list} & no & yes & 4:(sim x h) \\ \hline
+\end{tabular}
+\caption{Selected Methods}
+\end{table}
+
+\noindent
+\textbf{Key for class (in):}
+\begin{itemize}
+    \item \textbf{1}: \texttt{gogarch.estimate}
+    \item \textbf{2}: \texttt{gogarch.predict}
+    \item \textbf{3}: \texttt{gogarch.simulate}
+    \item \textbf{4}: \texttt{dcc.estimate}
+    \item \textbf{5}: \texttt{dcc.predict}
+    \item \textbf{6}: \texttt{dcc.simulate}
+    \item \textbf{7}: \texttt{cgarch.estimate}
+    \item \textbf{8}: \texttt{cgarch.predict}
+    \item \textbf{9}: \texttt{cgarch.simulate}
+\end{itemize}
+
+\clearpage
 
 # References

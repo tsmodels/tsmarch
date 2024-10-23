@@ -466,6 +466,7 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
         if (!is.matrix(mu)) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
         if (NROW(mu) != n_points) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
         if (NCOL(mu) != n_series) stop(paste0("\ncond_mean must be a matrix of dimenions ", n_points, "x ", n_series))
+        mu <- coredata(mu)
         colnames(mu) <- series_names
     }
     return(mu)
@@ -492,7 +493,21 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
     return(x)
 }
 
-.univariate_prediction_mu <- function(object, series = 1)
+.covariance_prediction_plots <- function(model, p, series = c(1,2))
 {
-
+    hist <- tscov(model)[series[1], series[2],]
+    hist <- xts(hist, order.by = model$spec$target$index)
+    pred <- t(tscov(p)[series[1], series[2],,])
+    if (grepl("predict",class(p)[1])) {
+        colnames(pred) <- p$future_dates
+        class(pred) <- "tsmodel.distribution"
+    } else {
+        nh <- as.integer(median(diff(index(hist))))
+        f_dates <- as.Date(tail(model$spec$target$index, 1)) + seq(nh, nh * NCOL(pred), by = nh)
+        colnames(pred) <- as.character(f_dates)
+        class(pred) <- "tsmodel.distribution"
+    }
+    L <- list(distribution = pred, original_series = hist)
+    class(L) <- "tsmodel.predict"
+    return(L)
 }

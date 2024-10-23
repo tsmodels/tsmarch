@@ -4,14 +4,12 @@
 \alias{plot.tsmarch.newsimpact}
 \title{News Impact Surface Plot}
 \usage{
-\method{plot}{tsmarch.newsimpact}(x, y = NULL, type = "surface", ...)
+\method{plot}{tsmarch.newsimpact}(x, y = NULL, ...)
 }
 \arguments{
 \item{x}{an object of class \dQuote{tsmarch.newsimpact}.}
 
 \item{y}{not used.}
-
-\item{type}{either \dQuote{surface} or \dQuote{contour}.}
 
 \item{...}{not currently supported.}
 }

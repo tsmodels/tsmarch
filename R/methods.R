@@ -25,6 +25,7 @@ cgarch_modelspec <- function(object, ...)
 #' @param transformation the copula transformation to apply.
 #' @param constant_correlation the constant correlation estimator to use. In the
 #' case of the \dQuote{student} copula, only Kendall's tau is a valid choice.
+#' @param cond_mean an optional matrix of the conditional mean for the series.
 #' @param ... additional arguments passed to the \code{\link[tsdistributions]{spd_modelspec}}
 #' function in the case of the \dQuote{spd} transformation.
 #' @returns an object of class \dQuote{cgarch.spec}.
@@ -36,14 +37,20 @@ cgarch_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("consta
                                         dcc_order = c(1,1),
                                         transformation = c("parametric","empirical","spd"),
                                         copula = c("gaussian","student"),
-                                        constant_correlation = c("pearson", "kendall","spearman"), ...)
+                                        constant_correlation = c("pearson", "kendall","spearman"),
+                                        cond_mean = NULL, ...)
 {
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
     transformation <- match.arg(transformation[1], c("parametric","empirical","spd"))
     copula <- match.arg(copula[1], c("gaussian","student"))
     spec <- list()
     spec$target$y <- coredata(residuals(object))
-    spec$target$mu <- coredata(fitted(object))
+    if (!is.null(cond_mean)) {
+        mu <- .cond_mean_spec(mu = cond_mean, NCOL(spec$target$y), NROW(spec$target$y), names(object))
+        spec$target$mu <- mu
+    } else {
+        spec$target$mu <- coredata(fitted(object))
+    }
     spec$target$sigma <- coredata(sigma(object))
     spec$target$index <- .garch_extract_index(object)
     spec$univariate <- object
@@ -116,6 +123,7 @@ dcc_modelspec <- function(object, ...)
 #' correlation models.
 #' @param distribution the multivariate distribution. If using the \dQuote{student},
 #' then the first stage univariate models should use the normal distribution.
+#' @param cond_mean an optional matrix of the conditional mean for the series.
 #' @param ... not currently used.
 #' @returns an object of class \dQuote{dcc.spec}.
 #' @method dcc_modelspec tsgarch.multi_estimate
@@ -124,13 +132,19 @@ dcc_modelspec <- function(object, ...)
 #'
 dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant","dcc","adcc"),
                                         dcc_order = c(1,1),
-                                        distribution = c("gaussian","student"), ...)
+                                        distribution = c("gaussian","student"),
+                                        cond_mean = NULL, ...)
 {
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
     distribution <- match.arg(distribution[1], c("gaussian","student"))
     spec <- list()
     spec$target$y <- coredata(residuals(object))
-    spec$target$mu <- coredata(fitted(object))
+    if (!is.null(cond_mean)) {
+        mu <- .cond_mean_spec(mu = cond_mean, NCOL(spec$target$y), NROW(spec$target$y), names(object))
+        spec$target$mu <- mu
+    } else {
+        spec$target$mu <- coredata(fitted(object))
+    }
     spec$target$sigma <- coredata(sigma(object))
     spec$target$index <- .garch_extract_index(object)
     spec$univariate <- object
@@ -270,12 +284,12 @@ estimate.gogarch.spec <- function(object, trace = FALSE, ...)
 #' @export
 #'
 #'
-tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, ...)
+tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, cond_mean = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_filter(object, y = y, update = update, ...),
-                  "dcc" = .copula_dynamic_filter(object, y = y, update = update, ...),
-                  "adcc" = .copula_dynamic_filter(object, y = y, update = update, ...))
+                  "constant" = .copula_constant_filter(object, y = y, update = update, cond_mean = cond_mean, ...),
+                  "dcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, ...),
+                  "adcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, ...))
     return(out)
 }
 
@@ -285,12 +299,12 @@ tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, update = 
 #' @export
 #'
 #'
-tsfilter.dcc.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, ...)
+tsfilter.dcc.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, cond_mean = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_filter(object, y = y, update = update, ...),
-                  "dcc" = .dcc_dynamic_filter(object, y = y, update = update, ...),
-                  "adcc" = .dcc_dynamic_filter(object, y = y, update = update, ...))
+                  "constant" = .dcc_constant_filter(object, y = y, update = update, cond_mean = cond_mean, ...),
+                  "dcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, ...),
+                  "adcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, ...))
     return(out)
 }
 
@@ -351,14 +365,14 @@ tsfilter.gogarch.estimate <- function(object, y = NULL,  newxreg = NULL, cond_me
 #'
 #'
 simulate.cgarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0,
-                                      Q_init = NULL, Z_init = NULL,
-                                      init_method = c("start", "end"),
-                                      sim_method = c("parametric", "bootstrap"), ...)
+                                     Q_init = NULL, Z_init = NULL,
+                                     init_method = c("start", "end"), cond_mean = NULL,
+                                     sim_method = c("parametric", "bootstrap"), ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], ...),
-                  "dcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], ...),
-                  "adcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], ...))
+                  "constant" = .copula_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, ...),
+                  "dcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], ...),
+                  "adcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], ...))
     return(out)
 }
 
@@ -368,14 +382,14 @@ simulate.cgarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bur
 #'
 #'
 simulate.dcc.estimate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0,
-                                     Q_init = NULL, Z_init = NULL,
-                                     init_method = c("start", "end"),
-                                     sim_method = c("parametric", "bootstrap"), ...)
+                                  Q_init = NULL, Z_init = NULL,
+                                  init_method = c("start", "end"), cond_mean = NULL,
+                                  sim_method = c("parametric", "bootstrap"), ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], ...),
-                  "dcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], ...),
-                  "adcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], ...))
+                  "constant" = .dcc_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, ...),
+                  "dcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], ...),
+                  "adcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], ...))
     return(out)
 }
 
@@ -422,12 +436,12 @@ simulate.gogarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bu
 #'
 #'
 predict.cgarch.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                                    forc_dates = NULL, seed = NULL, ...)
+                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...),
-                  "dcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...),
-                  "adcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...))
+                  "constant" = .copula_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...),
+                  "dcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...),
+                  "adcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...))
     return(out)
 }
 
@@ -437,12 +451,12 @@ predict.cgarch.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("
 #'
 #'
 predict.dcc.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                                    forc_dates = NULL, seed = NULL, ...)
+                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...),
-                  "dcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...),
-                  "adcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, seed = seed, ...))
+                  "constant" = .dcc_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...),
+                  "dcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...),
+                  "adcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, ...))
     return(out)
 }
 
@@ -586,8 +600,8 @@ residuals.gogarch.estimate <- function(object, standardize = FALSE, type = "stan
 
 fitted_estimate <- function(object, ...)
 {
-    out <- xts(object$spec$target$mu, object$spec$target$index)
-    colnames(out) <- object$spec$target$series_names
+    out <- xts(object$mu, object$spec$target$index)
+    colnames(out) <- object$spec$series_names
     return(out)
 }
 
@@ -1463,6 +1477,7 @@ tscokurt.gogarch.simulate <- function(object, index = NULL, distribution = FALSE
 
 coef_estimate <- function(object, ...)
 {
+    estimate <- NULL
     if (sum(object$parmatrix$estimate) == 0) return(NULL)
     cf <- object$parmatrix[estimate == 1]$value
     names(cf) <- object$parmatrix[estimate == 1]$parameter
@@ -1497,6 +1512,17 @@ coef.dcc.estimate <- function(object, ...)
     return(coef_estimate(object = object, ...))
 }
 
+#' @method coef gogarch.estimate
+#' @rdname coef.tsmarch
+#' @export
+#'
+coef.gogarch.estimate <- function(object, ...)
+{
+    series <- parameter <- value <- estimate <- NULL
+    if (sum(object$parmatrix$estimate) == 0) return(NULL)
+    cf <- object$parmatrix[estimate == 1, list(series, parameter, value)]
+    return(cf)
+}
 
 # logLik ---------------------------------------------------
 
@@ -1641,7 +1667,7 @@ vcov.dcc.estimate <- function(object, adjust = FALSE, type = c("H","OP","QMLE","
 #' @export
 #'
 #'
-summary.cgarch.estimate <- function(object, vcov_type = "H", ...)
+summary.cgarch.estimate <- function(object, vcov_type = "OP", ...)
 {
     if (object$spec$dynamics$model == "constant" & object$spec$copula == "gaussian") {
         estimate <- NULL
@@ -1665,7 +1691,6 @@ summary.cgarch.estimate <- function(object, vcov_type = "H", ...)
                     elapsed = elapsed, conditions = NULL,
                     dynamics = toupper(object$spec$dynamics$model),
                     model = "CGARCH",
-                    distribution = upper_case_i(object$spec$copula,1,1),
                     transform = transformation)
     } else {
         estimate <- NULL
@@ -1700,7 +1725,6 @@ summary.cgarch.estimate <- function(object, vcov_type = "H", ...)
                     elapsed = elapsed, conditions = conditions,
                     dynamics = toupper(object$spec$dynamics$model),
                     model = "CGARCH",
-                    distribution = upper_case_i(object$spec$copula,1,1),
                     transform = transformation)
     }
     class(out) <- "summary.cgarch.estimate"
@@ -1712,7 +1736,7 @@ summary.cgarch.estimate <- function(object, vcov_type = "H", ...)
 #' @export
 #'
 #'
-summary.dcc.estimate <- function(object, vcov_type = "H", ...)
+summary.dcc.estimate <- function(object, vcov_type = "OP", ...)
 {
     if (object$spec$dynamics$model == "constant" & object$spec$distribution == "gaussian") {
         estimate <- NULL
@@ -1734,8 +1758,7 @@ summary.dcc.estimate <- function(object, vcov_type = "H", ...)
                     BIC = BIC(object),
                     elapsed = elapsed, conditions = NULL,
                     dynamics = toupper(object$spec$dynamics$model),
-                    model = "DCC",
-                    distribution = upper_case_i(object$spec$distribution,1,1))
+                    model = "DCC")
     } else {
         estimate <- NULL
         if (is.null(object$hessian)) {
@@ -1767,10 +1790,43 @@ summary.dcc.estimate <- function(object, vcov_type = "H", ...)
                     BIC = BIC(object),
                     elapsed = elapsed, conditions = conditions,
                     dynamics = toupper(object$spec$dynamics$model),
-                    model = "DCC",
-                    distribution = upper_case_i(object$spec$distribution,1,1))
+                    model = "DCC")
     }
     class(out) <- "summary.dcc.estimate"
+    return(out)
+}
+
+#' @method summary gogarch.estimate
+#' @rdname summary.tsmarch
+#' @export
+#'
+#'
+summary.gogarch.estimate <- function(object, vcov_type = "OP", ...)
+{
+    s <- lapply(object$univariate, function(x) summary(x, vcov_type = vcov_type))
+    coefficients <- lapply(1:length(s), function(i) {
+        tmp <- s[[i]]$coefficients
+        tmp[,term := paste0("[IC_",i,"]:",term)]
+    })
+    coefficients <- rbindlist(coefficients)
+    distribution <- object$spec$distribution
+    loglikelihood <- logLik(object)
+    n_obs <- object$spec$nobs
+    n_parameters <- object$spec$npars
+    n_series <- object$spec$n_series
+    factors <- length(s)
+    AIC <- AIC(object)
+    BIC <- BIC(object)
+    elapsed <- object$elapsed
+    dynamics <- object$spec$garch$model
+    model <- "GOGARCH"
+    U <- object$ic$U
+    K <- object$ic$K
+    out <- list(coefficients = coefficients, distribution = distribution,
+                loglikelihood = loglikelihood, n_obs = n_obs, n_parameters = n_parameters,
+                n_series = n_series, factors = factors, AIC = AIC, BIC = BIC,
+                elapsed = elapsed, dynamics = dynamics, model = model, U = U, K = K)
+    class(out) <- "summary.gogarch.estimate"
     return(out)
 }
 
@@ -1809,6 +1865,18 @@ print.summary.dcc.estimate <- function(x, digits = max(3L, getOption("digits") -
                                           ...)
 {
     .print_screen_dcc(x, digits = digits, signif.stars = signif.stars, ...)
+}
+
+#' @method print summary.gogarch.estimate
+#' @rdname print.tsmarch.estimate
+#' @export
+#'
+#'
+print.summary.gogarch.estimate <- function(x, digits = max(3L, getOption("digits") - 3L),
+                                       signif.stars = getOption("show.signif.stars"),
+                                       ...)
+{
+    .print_screen_gogarch(x, digits = digits, signif.stars = signif.stars, ...)
 }
 
 # tsaggregate ---------------------------------------------------
@@ -1945,8 +2013,8 @@ tsaggregate.gogarch.estimate <- function(object, weights = NULL, ...)
     wmu <- mu %*% weights
     wsigma <- .port_sigma(object, w)
     if (object$spec$distribution == 'norm') {
-        moments <- matrix(0, ncol = 2, nrow = n)
-        colnames(moments) <- c("mu","sigma")
+        moments <- matrix(0, ncol = 4, nrow = n)
+        colnames(moments) <- c("mu","sigma","skewness","kurtosis")
         moments[,1] <- as.numeric(wmu)
         moments[,2] <- wsigma
     } else {
@@ -2004,7 +2072,34 @@ tsaggregate.gogarch.predict <- function(object, weights = NULL, ...)
 #'
 tsaggregate.gogarch.simulate <- function(object, weights = NULL, ...)
 {
-    return(tsaggregate.gogarch.predict(object, weights, ...))
+    n <- object$h
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    h <- NCOL(object$univariate[[1]]$sigma)
+    nsim <- NROW(object$univariate[[1]]$sigma)
+    mu <- object$mu
+    w_mu <- matrix(NA, ncol = n, nrow = nsim)
+    for (i in 1:n) {
+        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+    }
+    w_sigma <- .gogarch_port_sigma_simulate(object, w)
+    forc_dates <- as.character(object$forc_dates)
+    if (object$spec$distribution == 'norm') {
+        w_mu <- .set_distribution_class(w_mu, forc_dates)
+        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+        L <- list(mu = w_mu, sigma = w_sigma)
+    } else {
+        w_skew <- .gogarch_port_skewness_simulate(object, w, w_sigma)
+        w_kurt <- .gogarch_port_kurtosis_simulate(object, w, w_sigma)
+        w_mu <- .set_distribution_class(w_mu, forc_dates)
+        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+        w_skew <- .set_distribution_class(w_skew, forc_dates)
+        w_kurt <- .set_distribution_class(w_kurt, forc_dates)
+        L <- list(mu = w_mu, sigma = w_sigma, skewness = w_skew, kurtosis = w_kurt)
+    }
+    return(L)
 }
 
 
@@ -2018,6 +2113,7 @@ tsaggregate.gogarch.simulate <- function(object, weights = NULL, ...)
 #' @param object an object of one of the estimated model classes in the package.
 #' @param epsilon not used.
 #' @param pair the pair of series for which to generate the news impact surface.
+#' @param factor the pair of factors for which to generate the news impact surface for the GO-GARCH model.
 #' @param type either \dQuote{correlation} or \dQuote{covariance}.
 #' @param ... additional parameters passed to the method.
 #' @returns An object of class \dQuote{tsmarch.newsimpact} which has a plot method.
@@ -2053,12 +2149,39 @@ newsimpact.dcc.estimate <- function(object, epsilon = NULL, pair = c(1,2), type 
            "covariance" = .dcc_newsimpact_covariance(object, pair))
 }
 
+
+#' @method newsimpact gogarch.estimate
+#' @rdname newsimpact.tsmarch
+#' @export
+#'
+#
+newsimpact.gogarch.estimate <- function(object, epsilon = NULL, pair = c(1,2), factor = c(1,1), type = "correlation", ...)
+{
+    type <- match.arg(type[1], c("correlation","covariance"))
+    max_pair <- object$spec$n_series
+    max_factor <- NROW(object$ic$A)
+    if (length(pair) != 2) stop("\npair must be a vector of length 2.")
+    if (max(pair) > max_pair) stop(paste0("\nmax(pair) must not exceed number of series (", max_pair,")"))
+
+    if (length(factor) != 2) stop("\nfactor must be a vector of length 2.")
+    if (max(factor) > max_factor) stop(paste0("\nmax(factor) must not exceed number of factors (", max_factor,")"))
+
+
+    switch(type,
+           "correlation" = .gogarch_newsimpact_correlation(object, pair),
+           "covariance" = .gogarch_newsimpact_covariance(object, pair, factor))
+}
+
+
+# plot newsimpact ---------------------------------------------------
+
+
+
 #' News Impact Surface Plot
 #'
 #' @description Plot method for newsimpact class.
 #' @param x an object of class \dQuote{tsmarch.newsimpact}.
 #' @param y not used.
-#' @param type either \dQuote{surface} or \dQuote{contour}.
 #' @param ... not currently supported.
 #' @returns a plot of the newsimpact surface
 #' @method plot tsmarch.newsimpact
@@ -2066,27 +2189,14 @@ newsimpact.dcc.estimate <- function(object, epsilon = NULL, pair = c(1,2), type 
 #' @export
 #'
 #
-plot.tsmarch.newsimpact <- function(x, y = NULL, type = "surface", ...)
+plot.tsmarch.newsimpact <- function(x, y = NULL, ...)
 {
-    type <- match.arg(type[1], c("surface","contour"))
-    axis_names <- c(paste0(x$pair_names[1],"[shock t-1]"), paste0(x$pair_names[2],"[shock t-1]"))
-    if (type == "surface") {
-        x1 <- drapecol(x$nisurface, col = topo.colors(100), NAcol = "white")
-        persp(  x = x$axis,
-                y = x$axis,
-                z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,
-                ltheta = 120, shade = 0.75, ticktype = "detailed", xlab = axis_names[1],
-                ylab = axis_names[2], zlab = x$type,
-                cex.axis = 0.7, cex.main = 0.8, main = paste0(upper_case_i(x$model,1,1),"[",toupper(x$dynamics),"] News Impact Surface"))
+
+    if (x$model == "gogarch") {
+        .gogarch_news_impact_surface(x, ...)
     } else {
-        tcol <- terrain.colors(12)
-        image(x = x$axis, y = x$axis, z = x$nisurface, col = rev(heat.colors(101)), xlab = axis_names[1], ylab = axis_names[2], cex.lab = 0.9)
-        contour(x = x$axis,
-                y = x$axis,
-                z = x$nisurface,  col = tcol[2], lty = "solid", cex.axis = 0.7,  cex.main = 0.8, add = TRUE)
-        title(main = paste0(upper_case_i(x$model,1,1),"[",toupper(x$dynamics),"] News Impact Contour"), cex.main = 0.9)
+        .dcc_news_impact_surface(x, ...)
     }
-    return(invisible(x))
 }
 
 # tsconvolve ---------------------------------------------------
@@ -2102,7 +2212,9 @@ plot.tsmarch.newsimpact <- function(x, y = NULL, type = "surface", ...)
 #' @param fft_step determines the step size for tuning the characteristic function inversion.
 #' @param fft_by determines the resolution for the equally spaced support given by \code{fft_support}.
 #' @param fft_support allows either a fixed support range to be given for the inversion else this is
-#' calculated by examining the upper and lower quantiles of each independent factor modelled.
+#' calculated (if NULL) by examining the upper and lower quantiles of each independent factor modeled.
+#' For the Generalized Hyperbolic distribution, it is not reccomended to leave this as NULL since
+#' it is quite expensive to calculate the quantiles and will significantly slow down execution time.
 #' @param ... not currently supported.
 #' @returns an object of class \dQuote{gogarch.fft}
 #' @details
@@ -2117,7 +2229,7 @@ plot.tsmarch.newsimpact <- function(x, y = NULL, type = "surface", ...)
 #' @rdname tsconvolve
 #' @export
 #'
-tsconvolve.gogarch.estimate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = NULL, ...)
+tsconvolve.gogarch.estimate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), ...)
 {
     n <- object$spec$nobs
     w <- .check_weights(weights, m = object$spec$n_series, n)
@@ -2183,7 +2295,7 @@ tsconvolve.gogarch.estimate <- function(object, weights = NULL, fft_step = 0.001
 #' @rdname tsconvolve
 #' @export
 #'
-tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = NULL, ...)
+tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), ...)
 {
     elapsed <- Sys.time()
     n <- object$h
@@ -2257,7 +2369,7 @@ tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001,
 #' @rdname tsconvolve
 #' @export
 #'
-tsconvolve.gogarch.simulate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = NULL, ...)
+tsconvolve.gogarch.simulate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), ...)
 {
     elapsed <- Sys.time()
     n <- object$h
@@ -2515,4 +2627,107 @@ plot.cgarch.estimate <- function(x, y = NULL, series = NULL, index_format = "%Y"
                                            cex_labels = cex_labels, ...)
 
     }
+}
+
+# risk measures ---------------------------------------------------
+#' @rdname value_at_risk
+#' @export
+#'
+value_at_risk <- function(object, ...)
+{
+    UseMethod("value_at_risk")
+}
+
+#' Value at Risk (VaR) method for predicted and simulated objects
+#'
+#' @param object an object from the predict or simulate methods.
+#' @param weights a vector of weights of length equal to the number of series. If
+#' NULL then an equal weight vector is used.
+#' @param alpha the quantile level for the value at risk.
+#' @param ... additional parameters passed to the \code{\link{tsconvolve}} method
+#' for the GO-GARCH model.
+#' @return an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
+#' sim x h of the value at risk.
+#' @export
+#' @method value_at_risk gogarch.predict
+#' @rdname value_at_risk
+value_at_risk.gogarch.predict <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
+    if (is.null(weights)) {
+        warning("\nweights not specified, using equal weights.")
+        weights <- rep(1/object$spec$n_series, object$spec$n_series)
+    }
+    if (object$spec$distribution == "norm") {
+        a <- tsaggregate(object, weights = weights)
+        var_value <- do.call(cbind, lapply(1:object$h, function(i) {
+            qnorm(alpha, mean = a$mu[,i], sd = a$sigma[,i])
+        }))
+        colnames(var_value) <- colnames(a$mu)
+        class(var_value) <- "tsmodel.distribution"
+    } else {
+        cf <- tsconvolve(object, weights = weights, ...)
+        var_value <- future_lapply(1:object$h, function(i) {
+            sapply(1:object$nsim, function(j) {qfft(cf, index = i, sim = j)(alpha)})
+        }, future.packages = "tsmarch", future.seed = TRUE)
+        var_value <- do.call(cbind, var_value)
+        colnames(var_value) <- colnames(a$mu)
+        class(var_value) <- "tsmodel.distribution"
+    }
+    attr(var_value, "alpha") <- 0.05
+    return(var_value)
+}
+
+#' @rdname expected_shortfall
+#' @export
+#'
+expected_shortfall <- function(object, ...)
+{
+    UseMethod("expected_shortfall")
+}
+
+#' Expected Shortfall (ES) method for predicted and simulated objects
+#'
+#' @param object an object from the predict or simulate methods.
+#' @param weights a vector of weights of length equal to the number of series. If
+#' NULL then an equal weight vector is used.
+#' @param alpha the quantile level for the value at risk.
+#' @param abs_tol the absolute tolerance used in the quadrature integration.
+#' @param ... additional parameters passed to the \code{\link{tsconvolve}} method
+#' for the GO-GARCH model.
+#' @return an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
+#' sim x h of the value at risk.
+#' @export
+#' @method expected_shortfall gogarch.predict
+#' @rdname expected_shortfall
+expected_shortfall.gogarch.predict <- function(object, weights = NULL, alpha = 0.05, abs_tol = 1e-6, ...)
+{
+    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
+    if (is.null(weights)) {
+        warning("\nweights not specified, using equal weights.")
+        weights <- rep(1/object$spec$n_series, object$spec$n_series)
+    }
+    if (object$spec$distribution == "norm") {
+        a <- tsaggregate(object, weights = weights)
+        varv <-  dnorm(qnorm(alpha, 0, 1))/(alpha)
+        es_value <- do.call(cbind, lapply(1:object$h, function(i) {
+            a$mu[,i] - a$sigma[,i] * varv
+        }))
+        colnames(es_value) <- colnames(a$mu)
+        class(es_value) <- "tsmodel.distribution"
+    } else {
+        cf <- tsconvolve(object, weights = weights, ...)
+        es_value <- future_lapply(1:object$h, function(i) {
+            sapply(1:object$nsim, function(j) {
+                qx <- qfft(cf, index = i, sim = j)
+                f <- function(x) qx(x)
+                integrate(f, 0, alpha, abs.tol = abs_tol, stop.on.error = FALSE)$value/(alpha)
+            })
+        }, future.packages = "tsmarch", future.seed = TRUE)
+        es_value <- do.call(cbind, es_value)
+        colnames(es_value) <- colnames(a$mu)
+        class(es_value) <- "tsmodel.distribution"
+    }
+    attr(es_value, "alpha") <- 0.05
+    return(es_value)
 }

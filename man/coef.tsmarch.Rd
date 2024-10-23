@@ -4,11 +4,14 @@
 \alias{coef.cgarch.estimate}
 \alias{coef}
 \alias{coef.dcc.estimate}
+\alias{coef.gogarch.estimate}
 \title{Extract Model Coefficients}
 \usage{
 \method{coef}{cgarch.estimate}(object, ...)
 
 \method{coef}{dcc.estimate}(object, ...)
+
+\method{coef}{gogarch.estimate}(object, ...)
 }
 \arguments{
 \item{object}{an estimated object from one of the models in the package.}

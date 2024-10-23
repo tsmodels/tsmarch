@@ -11,7 +11,7 @@
   weights = NULL,
   fft_step = 0.001,
   fft_by = 1e-04,
-  fft_support = NULL,
+  fft_support = c(-1, 1),
   ...
 )
 
@@ -20,7 +20,7 @@
   weights = NULL,
   fft_step = 0.001,
   fft_by = 1e-04,
-  fft_support = NULL,
+  fft_support = c(-1, 1),
   ...
 )
 
@@ -29,7 +29,7 @@
   weights = NULL,
   fft_step = 0.001,
   fft_by = 1e-04,
-  fft_support = NULL,
+  fft_support = c(-1, 1),
   ...
 )
 }
@@ -46,7 +46,9 @@ also allowed with the correct number of rows (time points or horizon).}
 \item{fft_by}{determines the resolution for the equally spaced support given by \code{fft_support}.}
 
 \item{fft_support}{allows either a fixed support range to be given for the inversion else this is
-calculated by examining the upper and lower quantiles of each independent factor modelled.}
+calculated (if NULL) by examining the upper and lower quantiles of each independent factor modeled.
+For the Generalized Hyperbolic distribution, it is not reccomended to leave this as NULL since
+it is quite expensive to calculate the quantiles and will significantly slow down execution time.}
 
 \item{...}{not currently supported.}
 }

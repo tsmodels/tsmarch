@@ -16,6 +16,7 @@
   Q_init = NULL,
   Z_init = NULL,
   init_method = c("start", "end"),
+  cond_mean = NULL,
   sim_method = c("parametric", "bootstrap"),
   ...
 )
@@ -29,6 +30,7 @@
   Q_init = NULL,
   Z_init = NULL,
   init_method = c("start", "end"),
+  cond_mean = NULL,
   sim_method = c("parametric", "bootstrap"),
   ...
 )
@@ -71,15 +73,15 @@ with the same values used during estimation, whereas the \dQuote{end} method
 uses the last values of the estimated model to initialize the recursion. In
 the constant correlation case, only the the GARCH initialization is relevant.}
 
+\item{cond_mean}{an optional matrix (h x n_series) of the simulated conditional
+mean for the series which is used to recenter the simulated distribution.}
+
 \item{sim_method}{white noise method for generating random sample for the
 multivariate distribution. The default \dQuote{parametric} samples random
 variates from the underlying error distribution whilst the \dQuote{bootstrap}
 samples from the whitened innovations of the fitted model.}
 
 \item{...}{no additional arguments currently supported.}
-
-\item{cond_mean}{an optional matrix (h x n_series) of the simulated conditional
-mean for the series which is used to recenter the simulated distribution.}
 }
 \value{
 A simulation class object for which methods exists for extracting

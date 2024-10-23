@@ -343,10 +343,9 @@
                 scores <- .dcc_constant_scores(all_pars, new_spec)
             }
         }
-
     }
     elapsed <- Sys.time() - elapsed
-    out <- list(parmatrix = pmatrix, solution = solution, hessian = hessian, scores = scores,
+    out <- list(parmatrix = pmatrix, solution = solution, mu = object$target$mu, hessian = hessian, scores = scores,
                 R = R, H = H, whitened_residuals = whitened_residuals,
                 dcc_nll = dcc_nll, loglik = model_nll, joint_parmatrix = mmatrix, spec = object)
     class(out) <- c("dcc.estimate","dcc.constant")
@@ -441,7 +440,7 @@
         }
         scores <- .dcc_dynamic_scores(all_pars, new_spec)
         elapsed <- Sys.time() - elapsed
-        out <- list(parmatrix = pmatrix, solution = solution, hessian = hessian,
+        out <- list(parmatrix = pmatrix, solution = solution, mu = object$target$mu, hessian = hessian,
                     scores = scores, joint_parmatrix = mmatrix,
                     Qbar = Qbar, Nbar = Nbar, R = R, H = H, Q = Q,
                     whitened_residuals = whitened_residuals,
@@ -453,7 +452,7 @@
 
 # dcc filtering ---------------------------------------------------
 
-.dcc_dynamic_filter <- function(object, y, update = TRUE, ...)
+.dcc_dynamic_filter <- function(object, y, update = TRUE, cond_mean = NULL, ...)
 {
     group <- NULL
     # the filtering will return a new estimate object with updated data.
@@ -464,6 +463,12 @@
     # on the original data size
     elapsed <- Sys.time()
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    if (!is.null(y)) {
+        is_null_y <- FALSE
+        new_y <- NROW(y)
+    } else {
+        is_null_y <- TRUE
+    }
     y <- .check_y_filter(object, y = y)
     # filter y
     if (update) {
@@ -480,7 +485,19 @@
     }
     new_univariate <- .garch_filter_model(object, y)
     object$spec$target$y <- coredata(residuals(new_univariate))
-    object$spec$target$mu <- coredata(fitted(new_univariate))
+    if (!is_null_y) {
+        if (!is.null(cond_mean)) {
+            mu <- .cond_mean_spec(mu = cond_mean, object$spec$n_series, new_y, object$spec$series_names)
+            object$spec$target$mu <- rbind(object$mu, mu)
+            object$mu <- rbind(object$mu, mu)
+        } else {
+            object$spec$target$mu <- coredata(fitted(new_univariate))
+            object$mu <- coredata(fitted(new_univariate))
+        }
+    } else {
+        object$spec$target$mu <- coredata(fitted(new_univariate))
+        object$mu <- coredata(fitted(new_univariate))
+    }
     object$spec$target$sigma <- coredata(sigma(new_univariate))
     object$spec$target$index <- .garch_extract_index(new_univariate)
     object$spec$univariate <- new_univariate
@@ -534,12 +551,18 @@
     return(object)
 }
 
-.dcc_constant_filter <- function(object, y, update = TRUE, ...)
+.dcc_constant_filter <- function(object, y, update = TRUE, cond_mean = NULL, ...)
 {
 
     elapsed <- Sys.time()
     group <- NULL
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    if (!is.null(y)) {
+        is_null_y <- FALSE
+        new_y <- NROW(y)
+    } else {
+        is_null_y <- TRUE
+    }
     y <- .check_y_filter(object, y = y)
     # filter y
     if (update) {
@@ -556,7 +579,19 @@
     }
     new_univariate <- .garch_filter_model(object, y)
     object$spec$target$y <- coredata(residuals(new_univariate))
-    object$spec$target$mu <- coredata(fitted(new_univariate))
+    if (!is_null_y) {
+        if (!is.null(cond_mean)) {
+            mu <- .cond_mean_spec(mu = cond_mean, object$spec$n_series, new_y, object$spec$series_names)
+            object$spec$target$mu <- rbind(object$mu, mu)
+            object$mu <- rbind(object$mu, mu)
+        } else {
+            object$spec$target$mu <- coredata(fitted(new_univariate))
+            object$mu <- coredata(fitted(new_univariate))
+        }
+    } else {
+        object$spec$target$mu <- coredata(fitted(new_univariate))
+        object$mu <- coredata(fitted(new_univariate))
+    }
     object$spec$target$sigma <- coredata(sigma(new_univariate))
     object$spec$target$index <- .garch_extract_index(new_univariate)
     object$spec$univariate <- new_univariate
@@ -594,13 +629,14 @@
 
 .dcc_dynamic_simulate_r <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0,
                                     Q_init = NULL, Z_init = NULL, init_method = c("start", "end"),
-                                    sim_method = c("parametric", "bootstrap"), ...)
+                                    cond_mean = NULL, sim_method = c("parametric", "bootstrap"), ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
     init_method <- match.arg(init_method, c("start", "end"))
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
     group <- NULL
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
     h <- h + burn
@@ -661,6 +697,9 @@
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
     sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
@@ -681,11 +720,12 @@
     return(out)
 }
 
-.dcc_constant_simulate_r <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, init_method = c("start", "end"), ...)
+.dcc_constant_simulate_r <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, cond_mean = NULL, init_method = c("start", "end"), ...)
 {
     parameter <- NULL
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     init_method <- match.arg(init_method, c("start", "end"))
     R <- object$R
     n_series <- object$spec$n_series
@@ -712,6 +752,9 @@
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
     sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
@@ -736,7 +779,7 @@
 # dcc prediction ---------------------------------------------------
 
 .dcc_dynamic_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                                 forc_dates = NULL, seed = NULL, ...)
+                                 forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
@@ -750,6 +793,7 @@
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
     group <- NULL
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
     alpha <- object$parmatrix[group == "alpha"]$value
@@ -805,6 +849,9 @@
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
     sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
@@ -826,7 +873,7 @@
 }
 
 .dcc_constant_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"), forc_dates = NULL,
-                                     seed = NULL, ...)
+                                  cond_mean = NULL, seed = NULL, ...)
 {
     group <- NULL
     elapsed <- Sys.time()
@@ -841,6 +888,7 @@
     shape <- object$parmatrix[group == "shape"]$value
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     group <- NULL
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
@@ -872,6 +920,9 @@
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
     sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
+    if (!is.null(cond_mean)) {
+        sim_mu <- .cond_mean_inject(sim_mu, mu, recenter = TRUE)
+    }
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
@@ -958,5 +1009,21 @@
     out <- list(nisurface = ni, axis = zseq, pair_names = pair_names, type = "covariance", model = "dcc", dynamics = object$spec$dynamics$model)
     class(out) <- c("tsmarch.newsimpact")
     return(out)
+}
+
+
+.dcc_news_impact_surface <- function(x, ...)
+{
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar))
+    axis_names <- c(paste0(x$pair_names[1]," [t-1]"), paste0(x$pair_names[2]," [t-1]"))
+    x1 <- drapecol(x$nisurface, col = topo.colors(100), NAcol = "white")
+    persp(  x = x$axis,
+            y = x$axis,
+            z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,
+            ltheta = 120, shade = 0.75, ticktype = "detailed", xlab = axis_names[1],
+            ylab = axis_names[2], zlab = x$type,
+            cex.axis = 0.7, cex.main = 0.8, main = paste0(toupper(x$model)," [",toupper(x$dynamics),"] News Impact ", x$type," Surface"))
+    return(invisible(x))
 }
 

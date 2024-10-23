@@ -201,6 +201,10 @@
     .Call(`_tsmarch_gogarch_covariance_weighted`, V, A, w)
 }
 
+.gogarch_kurtosis_weighted_sim <- function(A, sig, ku, weights, nsim, n) {
+    .Call(`_tsmarch_gogarch_cokurtosis_weighted_sim`, A, sig, ku, weights, nsim, n)
+}
+
 .aggregate_mu <- function(mu, w) {
     .Call(`_tsmarch_aggregate_mu`, mu, w)
 }

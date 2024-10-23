@@ -59,7 +59,6 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     garch_model <- .estimate_gogarch_components(components, object)
     # generate likelihood
     L$loglik <- .gogarch_log_likelihood(garch_model, ic$K)
-
     # extract covariance and correlation
     A <- ic$A
     V <- coredata(sigma(garch_model)^2)
@@ -204,7 +203,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
 }
 
 # always return [h n_series nsim]
-
+# NOTE: need to deal with dimensionality reduced system
 .gogarch_fitted <- function(object)
 {
     if (inherits(object, "gogarch.estimate")) {
@@ -268,7 +267,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
         K <- .gogarch_kurtosis_weighted(A, K = ku, V = sig^2, w = weights)/sigma^4
         return(K)
     } else {
-        warning("\nmultivariate normal does not have kurtosis")
+        warning("\nmultivariate normal does not have excess kurtosis")
     }
 }
 
@@ -338,12 +337,8 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     sig <- aperm(sig, perm = c(2,3,1))
     if (object$spec$distribution != 'norm') {
         ku <- .gogarch_dkurtosis(object)
-        K <- matrix(0, nrow = nsim, ncol = n)
-        for (i in 1:nsim) {
-            sig_mat <- .retain_dimensions_array(sig, i)
-            kusim <- matrix(ku, ncol = m, nrow = n, byrow = TRUE) * sig_mat^4
-            K[i,] <- .gogarch_kurtosis_weighted(A, K = kusim, V = sig_mat^2, w = weights)
-        }
+        kusim <- matrix(ku, ncol = m, nrow = n, byrow = TRUE)
+        K <- .gogarch_kurtosis_weighted_sim(A, sig, kusim, weights, nsim, n)
         K <- K/sigma^4
         return(K)
     } else {
@@ -434,3 +429,108 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     return(out)
 }
 
+.gogarch_newsimpact_covariance <- function(object, pair = c(1,2), factor = c(1,2), ...)
+{
+    # factors
+    A <- object$ica$A
+    m <- NROW(A)
+    newsimpact_list <- vector(mode = "list", length = m)
+    pair_names <- object$spec$series_names[pair]
+    newsimpact_list[[1]] <- newsimpact(object = object$univariate[[1]], epsilon = NULL)
+    # we want a common epsilon
+    z_eps <- newsimpact_list[[1]]$x
+    for (i in 2:m) newsimpact_list[[i]] <- newsimpact(epsilon = z_eps, object = object$univariate[[i]])
+    sigmas <- sapply(newsimpact_list, FUN = function(x) x$y)
+    N <- NROW(sigmas)
+    H <- array(NA, dim = c(NCOL(A), NCOL(A), N))
+    ni <- matrix(NA, ncol = N, nrow = N)
+    # find the no-shock index (z_eps = 0)
+    zero_shock <- as.numeric(which(round(newsimpact_list[[factor[1]]]$x,12) == 0)[1])
+    # to get the off diagonals we need to keep 1 fixed and
+    # revolve the epsilon of the other
+    s2 <- sapply(newsimpact_list, FUN = function(x) x$y)
+    rownames(s2) <- round(as.numeric(z_eps),4)
+    np <- 1:m
+    for (j in 1:N) {
+        for (i in 1:N) {
+            sigmas <- s2[zero_shock,]
+            sigmas1 <- as.numeric(s2[j, factor[1]])
+            sigmas2 <- as.numeric(s2[i, factor[2]])
+            sigmas[factor[1]] <- sigmas1
+            sigmas[factor[2]] <- sigmas2
+            H <- t(A) %*% diag(sigmas) %*% A
+            ni[j,i] <- H[pair[1], pair[2]]
+        }
+    }
+    out <- list(nisurface = ni, axis = z_eps, pairs = pair, pair_names = pair_names, factors = factor, type = "covariance", model = "gogarch", dynamics = object$spec$garch$model, A = A)
+    class(out) <- c("tsmarch.newsimpact")
+    return(out)
+}
+
+
+.gogarch_newsimpact_correlation <- function(object, pair = c(1,2), factor = c(1,2), ...)
+{
+    # factors
+    A <- object$ica$A
+    m <- NROW(A)
+    newsimpact_list <- vector(mode = "list", length = m)
+    pair_names <- object$spec$series_names[pair]
+    newsimpact_list[[1]] <- newsimpact(object = object$univariate[[1]], epsilon = NULL)
+    # we want a common epsilon
+    z_eps <- newsimpact_list[[1]]$x
+    for (i in 2:m) newsimpact_list[[i]] <- newsimpact(epsilon = z_eps, object = object$univariate[[i]])
+    sigmas <- sapply(newsimpact_list, FUN = function(x) x$y)
+    N <- NROW(sigmas)
+    H <- array(NA, dim = c(NCOL(A), NCOL(A), N))
+    ni <- matrix(NA, ncol = N, nrow = N)
+    # find the no-shock index (z_eps = 0)
+    zero_shock <- as.numeric(which(round(newsimpact_list[[factor[1]]]$x,12) == 0)[1])
+    # to get the off diagonals we need to keep 1 fixed and
+    # revolve the epsilon of the other
+    s2 <- sapply(newsimpact_list, FUN = function(x) x$y)
+    rownames(s2) <- round(as.numeric(z_eps),4)
+    np <- 1:m
+    for (j in 1:N) {
+        for (i in 1:N) {
+            sigmas <- s2[zero_shock,]
+            sigmas1 <- as.numeric(s2[j, factor[1]])
+            sigmas2 <- as.numeric(s2[i, factor[2]])
+            sigmas[factor[1]] <- sigmas1
+            sigmas[factor[2]] <- sigmas2
+            H <- t(A) %*% diag(sigmas) %*% A
+            R <- cov2cor(H)
+            ni[j,i] <- R[pair[1], pair[2]]
+        }
+    }
+    out <- list(nisurface = ni, axis = z_eps, pairs = pair, pair_names = pair_names, factors = factor, type = "correlation", model = "gogarch", dynamics = object$spec$garch$model, A = A)
+    class(out) <- c("tsmarch.newsimpact")
+    return(out)
+}
+
+.gogarch_news_impact_surface <- function(x, ...)
+{
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar))
+    heading <- paste0(toupper(x$model)," [",toupper(x$dynamics),"] News Impact ", upper_case_i(x$type,1,1)," Surface\n",x$pair_names[1],"[",x$factors[1],"]:",x$pair_names[2],"[",x$factors[2],"]")
+    layout(matrix(c(1,2,1,3), 2, 2, byrow = TRUE))
+    factors <- x$factors
+    axis_names <- c(paste0("F_",factors[1]," [t-1]"), paste0("F_",factors[2]," [t-1]"))
+    x1 <- drapecol(x$nisurface, col = topo.colors(100), NAcol = "white")
+    persp(  x = x$axis,
+            y = x$axis,
+            z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,
+            ltheta = 120, shade = 0.75, ticktype = "detailed", xlab = axis_names[1],
+            ylab = axis_names[2], zlab = "",
+            cex.axis = 0.7, cex.main = 0.8, main = heading)
+
+    par(mar = c(2,2,2,2))
+    cols_factor1 <- c("cadetblue","steelblue")
+    barplot(x$A[factors,x$pairs[1]], col = cols_factor1, main = paste0(x$pair_names[1]," Factor Loadings"), cex.names = 0.7, cex.axis = 0.7, cex.lab = 0.7, names.arg = paste0("F_",factors),  cex.main = 0.7)
+    abline(h = 0)
+    box()
+    cols_factor2 <- c("cadetblue","steelblue")
+    barplot(x$A[factors,x$pairs[2]], col = cols_factor2, main = paste0(x$pair_names[2]," Factor Loadings"), cex.names = 0.7, cex.axis = 0.7, cex.lab = 0.7, cex.main = 0.7)
+    abline(h = 0)
+    box()
+    return(invisible(x))
+}

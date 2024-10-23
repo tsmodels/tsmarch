@@ -11,6 +11,7 @@
   transformation = c("parametric", "empirical", "spd"),
   copula = c("gaussian", "student"),
   constant_correlation = c("pearson", "kendall", "spearman"),
+  cond_mean = NULL,
   ...
 )
 }
@@ -28,6 +29,8 @@ correlation models.}
 
 \item{constant_correlation}{the constant correlation estimator to use. In the
 case of the \dQuote{student} copula, only Kendall's tau is a valid choice.}
+
+\item{cond_mean}{an optional matrix of the conditional mean for the series.}
 
 \item{...}{additional arguments passed to the \code{\link[tsdistributions]{spd_modelspec}}
 function in the case of the \dQuote{spd} transformation.}

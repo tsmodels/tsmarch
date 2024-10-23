@@ -7,9 +7,23 @@
 \alias{tsfilter.gogarch.estimate}
 \title{Model Filtering}
 \usage{
-\method{tsfilter}{cgarch.estimate}(object, y = NULL, newxreg = NULL, update = TRUE, ...)
+\method{tsfilter}{cgarch.estimate}(
+  object,
+  y = NULL,
+  newxreg = NULL,
+  update = TRUE,
+  cond_mean = NULL,
+  ...
+)
 
-\method{tsfilter}{dcc.estimate}(object, y = NULL, newxreg = NULL, update = TRUE, ...)
+\method{tsfilter}{dcc.estimate}(
+  object,
+  y = NULL,
+  newxreg = NULL,
+  update = TRUE,
+  cond_mean = NULL,
+  ...
+)
 
 \method{tsfilter}{gogarch.estimate}(object, y = NULL, newxreg = NULL, cond_mean = NULL, ...)
 }
@@ -23,9 +37,9 @@
 \item{update}{whether to update certain values using the most recent information
 less than the new data (see details).}
 
-\item{...}{additional arguments for future expansion.}
-
 \item{cond_mean}{an optional matrix of the filtered conditional mean values.}
+
+\item{...}{additional arguments for future expansion.}
 }
 \value{
 A \dQuote{cgarch.estimate} or \dQuote{dcc.estimate} object with updated

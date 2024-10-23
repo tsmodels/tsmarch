@@ -9,6 +9,7 @@
   dynamics = c("constant", "dcc", "adcc"),
   dcc_order = c(1, 1),
   distribution = c("gaussian", "student"),
+  cond_mean = NULL,
   ...
 )
 }
@@ -22,6 +23,8 @@ correlation models.}
 
 \item{distribution}{the multivariate distribution. If using the \dQuote{student},
 then the first stage univariate models should use the normal distribution.}
+
+\item{cond_mean}{an optional matrix of the conditional mean for the series.}
 
 \item{...}{not currently used.}
 }

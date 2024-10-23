@@ -262,8 +262,8 @@ rcopula_gauss <- function(n, u, s)
 {
     if (is.null(mu)) mu <- 0
     cdf_f <- .create_cdf(x, dx, h, mu = mu)
-    #y_left <- min(x + mu)
-    #y_right <- max(x + mu)
+    y_left <- min(x + mu)
+    y_right <- max(x + mu)
     #px_lower <- cdf_f(x)
     #px_upper <- cdf_f(x, lower_tail = FALSE)
     y_left <- -Inf

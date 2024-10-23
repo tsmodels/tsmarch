@@ -4,6 +4,7 @@
 \alias{print.summary.cgarch.estimate}
 \alias{print.summary.tsmarch.estimate}
 \alias{print.summary.dcc.estimate}
+\alias{print.summary.gogarch.estimate}
 \title{Model Estimation Summary Print method}
 \usage{
 \method{print}{summary.cgarch.estimate}(
@@ -14,6 +15,13 @@
 )
 
 \method{print}{summary.dcc.estimate}(
+  x,
+  digits = max(3L, getOption("digits") - 3L),
+  signif.stars = getOption("show.signif.stars"),
+  ...
+)
+
+\method{print}{summary.gogarch.estimate}(
   x,
   digits = max(3L, getOption("digits") - 3L),
   signif.stars = getOption("show.signif.stars"),

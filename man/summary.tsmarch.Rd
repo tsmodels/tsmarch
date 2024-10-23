@@ -4,11 +4,14 @@
 \alias{summary.cgarch.estimate}
 \alias{summary}
 \alias{summary.dcc.estimate}
+\alias{summary.gogarch.estimate}
 \title{Model Estimation Summary}
 \usage{
-\method{summary}{cgarch.estimate}(object, vcov_type = "H", ...)
+\method{summary}{cgarch.estimate}(object, vcov_type = "OP", ...)
 
-\method{summary}{dcc.estimate}(object, vcov_type = "H", ...)
+\method{summary}{dcc.estimate}(object, vcov_type = "OP", ...)
+
+\method{summary}{gogarch.estimate}(object, vcov_type = "OP", ...)
 }
 \arguments{
 \item{object}{an object of class \dQuote{cgarch.estimate} or \dQuote{dcc.estimate}.}

@@ -3,11 +3,21 @@
 \name{newsimpact.cgarch.estimate}
 \alias{newsimpact.cgarch.estimate}
 \alias{newsimpact.dcc.estimate}
+\alias{newsimpact.gogarch.estimate}
 \title{News Impact Surface}
 \usage{
 \method{newsimpact}{cgarch.estimate}(object, epsilon = NULL, pair = c(1, 2), type = "correlation", ...)
 
 \method{newsimpact}{dcc.estimate}(object, epsilon = NULL, pair = c(1, 2), type = "correlation", ...)
+
+\method{newsimpact}{gogarch.estimate}(
+  object,
+  epsilon = NULL,
+  pair = c(1, 2),
+  factor = c(1, 1),
+  type = "correlation",
+  ...
+)
 }
 \arguments{
 \item{object}{an object of one of the estimated model classes in the package.}
@@ -19,6 +29,8 @@
 \item{type}{either \dQuote{correlation} or \dQuote{covariance}.}
 
 \item{...}{additional parameters passed to the method.}
+
+\item{factor}{the pair of factors for which to generate the news impact surface for the GO-GARCH model.}
 }
 \value{
 An object of class \dQuote{tsmarch.newsimpact} which has a plot method.
