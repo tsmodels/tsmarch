@@ -23,7 +23,7 @@
 #' @importFrom RcppBessel bessel_k
 #' @importFrom RcppParallel RcppParallelLibs
 #' @importFrom lubridate tz days weeks years `%m+%`
-#' @importFrom utils tail head data combn
+#' @importFrom utils tail head data combn write.table
 
 "_PACKAGE"
 

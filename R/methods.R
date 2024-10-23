@@ -1803,6 +1803,7 @@ summary.dcc.estimate <- function(object, vcov_type = "OP", ...)
 #'
 summary.gogarch.estimate <- function(object, vcov_type = "OP", ...)
 {
+    term <- NULL
     s <- lapply(object$univariate, function(x) summary(x, vcov_type = vcov_type))
     coefficients <- lapply(1:length(s), function(i) {
         tmp <- s[[i]]$coefficients
