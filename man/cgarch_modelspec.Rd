@@ -9,7 +9,7 @@
   dynamics = c("constant", "dcc", "adcc"),
   dcc_order = c(1, 1),
   transformation = c("parametric", "empirical", "spd"),
-  copula = c("gaussian", "student"),
+  copula = c("mvn", "mvt"),
   constant_correlation = c("pearson", "kendall", "spearman"),
   cond_mean = NULL,
   ...
@@ -28,7 +28,7 @@ correlation models.}
 \item{copula}{the copula distribution.}
 
 \item{constant_correlation}{the constant correlation estimator to use. In the
-case of the \dQuote{student} copula, only Kendall's tau is a valid choice.}
+case of the \dQuote{mvt} copula, only Kendall's tau is a valid choice.}
 
 \item{cond_mean}{an optional matrix of the conditional mean for the series.}
 

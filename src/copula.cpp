@@ -55,11 +55,11 @@ arma::mat pit_transform(arma::mat u, const double shape, Rcpp::String distributi
     int m = u.n_cols;
     int n = u.n_rows;
     arma::mat z = arma::zeros(n, m);
-    if(distribution == "gaussian"){
+    if(distribution == "mvn"){
         for(int i=0;i<m;i++){
             z.col(i) = vqnorm(u.col(i));
         }
-    } else if(distribution == "student"){
+    } else if(distribution == "mvt"){
         for(int i=0;i<m;i++){
             z.col(i) = vqstd(u.col(i), shape);
         }
@@ -76,7 +76,7 @@ Rcpp::List copula_constant_normal(const arma::mat u, Rcpp::String method)
     int m = u.n_cols;
     // not used
     const double shape = 5.0;
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     arma::mat Z = pit_transform(u, shape, distribution);
     arma::mat R = make_correlation(Z, method);
     bool ispd = is_psd(R);
@@ -89,14 +89,14 @@ Rcpp::List copula_constant_normal(const arma::mat u, Rcpp::String method)
     arma::mat identity_matrix = arma::eye(m, m);
     arma::mat r_inverse = arma::inv_sympd(R) - identity_matrix;
     double part1 = arma::log_det_sympd(R);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     for (int i = 0;i<timesteps;i++) {
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) += part1;
-        llhvec(i) *= 0.5;
+        ll_vec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
+        ll_vec(i) += part1;
+        ll_vec(i) *= 0.5;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("R") = R , _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -106,7 +106,7 @@ Rcpp::List copula_constant_student(double shape, const arma::mat u)
     int timesteps = u.n_rows;
     int m = u.n_cols;
     // not used
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     Rcpp::String method = "kendall";
     arma::mat Z = pit_transform(u, shape, distribution);
     arma::mat R = make_correlation(Z, method);
@@ -121,16 +121,16 @@ Rcpp::List copula_constant_student(double shape, const arma::mat u)
     double part1 = arma::log_det_sympd(R);
     double part2 = 0.0;
     double part3 = 0.0;
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     for (int i = 0;i<timesteps;i++) {
         part2 = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
         part3 = arma::accu(dtZ.row(i));
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2) - part3;
-        llhvec(i) *= -1.0;
+        ll_vec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
+        ll_vec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2) - part3;
+        ll_vec(i) *= -1.0;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("R") = R , _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -148,7 +148,7 @@ Rcpp::List copula_dynamic_normal(const arma::vec alpha, const arma::vec gamma, c
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
     double shape = 5.0;
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     arma::mat Zinit = pit_transform(u, shape, distribution);
     arma::mat Qbar = arma::cov(Zinit);
     arma::mat AsyZinit = arma::zeros(u.n_rows, m);
@@ -160,7 +160,7 @@ Rcpp::List copula_dynamic_normal(const arma::vec alpha, const arma::vec gamma, c
     const int timesteps = u.n_rows + maxpq;
     arma::mat Z = arma::join_cols(zero_matrix, Zinit);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -198,10 +198,10 @@ Rcpp::List copula_dynamic_normal(const arma::vec alpha, const arma::vec gamma, c
         arma::mat Rinv = arma::inv(Rt);
         double temp = arma::as_scalar(Z.row(i) * ((Rinv - id_matrix) * Z.row(i).t()));
         double llhtemp = 0.5 * arma::as_scalar(log(arma::det(Rt)) + temp);
-        llhvec(i) = llhtemp;
+        ll_vec(i) = llhtemp;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -217,7 +217,7 @@ Rcpp::List copula_dynamic_student(const arma::vec alpha, const arma::vec gamma, 
     double sum_gamma = arma::accu(gamma);
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     arma::mat Zinit = pit_transform(u, shape, distribution);
     arma::mat Qbar = arma::cov(Zinit);
     arma::mat AsyZinit = arma::zeros(u.n_rows, m);
@@ -231,7 +231,7 @@ Rcpp::List copula_dynamic_student(const arma::vec alpha, const arma::vec gamma, 
     arma::mat Z = arma::join_cols(zero_matrix, Zinit);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
     arma::mat dZ = arma::join_cols(zero_matrix, dZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -269,10 +269,10 @@ Rcpp::List copula_dynamic_student(const arma::vec alpha, const arma::vec gamma, 
         double temp2 = arma::as_scalar(Z.row(i) * (arma::inv(Rt) * Z.row(i).t()));
         double temp4 = arma::accu(dZ.row(i));
         double llhtemp = arma::as_scalar(temp0 - 0.5 * log(arma::det(Rt)) - 0.5 * (shape + m) * log(1.0 + (1.0 / (shape - 2.0)) * temp2) - temp4);
-        llhvec(i) = -1.0 * llhtemp;
+        ll_vec(i) = -1.0 * llhtemp;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -284,7 +284,7 @@ Rcpp::List copula_constant_normal_filter(const arma::mat u, Rcpp::String method,
     int m = u.n_cols;
     // not used
     const double shape = 5.0;
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     arma::mat Z = pit_transform(u, shape, distribution);
     arma::mat R = make_correlation(Z.head_rows(n_update), method);
     bool ispd = is_psd(R);
@@ -297,14 +297,14 @@ Rcpp::List copula_constant_normal_filter(const arma::mat u, Rcpp::String method,
     arma::mat identity_matrix = arma::eye(m, m);
     arma::mat r_inverse = arma::inv_sympd(R) - identity_matrix;
     double part1 = arma::log_det_sympd(R);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     for (int i = 0;i<timesteps;i++) {
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) += part1;
-        llhvec(i) *= 0.5;
+        ll_vec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
+        ll_vec(i) += part1;
+        ll_vec(i) *= 0.5;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("R") = R , _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -314,7 +314,7 @@ Rcpp::List copula_constant_student_filter(double shape, const arma::mat u, const
     int timesteps = u.n_rows;
     int m = u.n_cols;
     // not used
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     Rcpp::String method = "kendall";
     arma::mat Z = pit_transform(u, shape, distribution);
     arma::mat R = make_correlation(Z.head_rows(n_update), method);
@@ -329,16 +329,16 @@ Rcpp::List copula_constant_student_filter(double shape, const arma::mat u, const
     double part1 = arma::log_det_sympd(R);
     double part2 = 0.0;
     double part3 = 0.0;
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     for (int i = 0;i<timesteps;i++) {
         part2 = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
         part3 = arma::accu(dtZ.row(i));
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2) - part3;
-        llhvec(i) *= -1.0;
+        ll_vec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
+        ll_vec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2) - part3;
+        ll_vec(i) *= -1.0;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("R") = R , _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -356,7 +356,7 @@ Rcpp::List copula_dynamic_normal_filter(const arma::vec alpha, const arma::vec g
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
     double shape = 5.0;
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     arma::mat Zinit = pit_transform(u, shape, distribution);
     arma::mat Qbar = arma::cov(Zinit.head_rows(n_update));
     arma::mat AsyZinit = arma::zeros(u.n_rows, m);
@@ -368,7 +368,7 @@ Rcpp::List copula_dynamic_normal_filter(const arma::vec alpha, const arma::vec g
     const int timesteps = u.n_rows + maxpq;
     arma::mat Z = arma::join_cols(zero_matrix, Zinit);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -406,10 +406,10 @@ Rcpp::List copula_dynamic_normal_filter(const arma::vec alpha, const arma::vec g
         arma::mat Rinv = arma::inv(Rt);
         double temp = arma::as_scalar(Z.row(i) * ((Rinv - id_matrix) * Z.row(i).t()));
         double llhtemp = 0.5 * arma::as_scalar(log(arma::det(Rt)) + temp);
-        llhvec(i) = llhtemp;
+        ll_vec(i) = llhtemp;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -429,7 +429,7 @@ Rcpp::List copula_dynamic_student_filter(const arma::vec alpha, const arma::vec 
     double sum_gamma = arma::accu(gamma);
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     arma::mat Zinit = pit_transform(u, shape, distribution);
     arma::mat Qbar = arma::cov(Zinit.head_rows(n_update));
     arma::mat AsyZinit = arma::zeros(u.n_rows, m);
@@ -443,7 +443,7 @@ Rcpp::List copula_dynamic_student_filter(const arma::vec alpha, const arma::vec 
     arma::mat Z = arma::join_cols(zero_matrix, Zinit);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
     arma::mat dZ = arma::join_cols(zero_matrix, dZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -481,10 +481,10 @@ Rcpp::List copula_dynamic_student_filter(const arma::vec alpha, const arma::vec 
         double temp2 = arma::as_scalar(Z.row(i) * (arma::inv(Rt) * Z.row(i).t()));
         double temp4 = arma::accu(dZ.row(i));
         double llhtemp = arma::as_scalar(temp0 - 0.5 * log(arma::det(Rt)) - 0.5 * (shape + m) * log(1.0 + (1.0 / (shape - 2.0)) * temp2) - temp4);
-        llhvec(i) = -1.0 * llhtemp;
+        ll_vec(i) = -1.0 * llhtemp;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["Z"] = Z, _["ll_vec"] = ll_vec, _["nll"] = nll);
     return L;
 }
 
@@ -551,9 +551,9 @@ Rcpp::List copula_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
         Rt = arma::symmatu(Rt);
         R.slice(i) = Rt;
         arma::rowvec ztmp = std_noise.row(i);
-        if (distribution == "student") {
+        if (distribution == "mvt") {
             Z.row(i) = rmvt(Rt, ztmp, shape, (double) chisqrv(i));
-        } else if (distribution == "gaussian") {
+        } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(Rt, ztmp);
         } else {
             Rf_error("cgarchsim: unknown distribution");
@@ -561,9 +561,9 @@ Rcpp::List copula_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
         AsyZ.row(i) = matrix_sign(Z.row(i)) % Z.row(i);
     }
     arma::mat U = arma::zeros(arma::size(Z));
-    if (distribution == "gaussian") {
+    if (distribution == "mvn") {
         U = mpnorm(Z);
-    } else if (distribution == "student") {
+    } else if (distribution == "mvt") {
         U = mpstd(Z, shape);
     } else {
         Rf_error("cgarchsim: unknown distribution");
@@ -587,18 +587,18 @@ Rcpp::List copula_constant_simulate(const double shape, const arma::mat R, const
     arma::vec chisqrv = as<arma::vec>(wrap(Rcpp::rchisq(timesteps, shape)));
     for(int i = 0;i<timesteps;++i){
         arma::rowvec ztmp = std_noise.row(i);
-        if (distribution == "student") {
+        if (distribution == "mvt") {
             Z.row(i) = rmvt(R, ztmp, shape, (double) chisqrv(i));
-        } else if (distribution == "gaussian") {
+        } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(R, ztmp);
         } else {
             Rf_error("cgarchsim: unknown distribution");
         }
     }
     arma::mat U = arma::zeros(arma::size(Z));
-    if (distribution == "gaussian") {
+    if (distribution == "mvn") {
         U = mpnorm(Z);
-    } else if (distribution == "student") {
+    } else if (distribution == "mvt") {
         U = mpstd(Z, shape);
     } else {
         Rf_error("cgarchsim: unknown distribution");

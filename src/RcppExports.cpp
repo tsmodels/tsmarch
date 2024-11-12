@@ -266,31 +266,33 @@ BEGIN_RCPP
 END_RCPP
 }
 // dcc_constant_normal
-Rcpp::List dcc_constant_normal(const arma::mat Z);
-RcppExport SEXP _tsmarch_dcc_constant_normal(SEXP ZSEXP) {
+Rcpp::List dcc_constant_normal(const arma::mat Z, const arma::mat S);
+RcppExport SEXP _tsmarch_dcc_constant_normal(SEXP ZSEXP, SEXP SSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_constant_normal(Z));
+    Rcpp::traits::input_parameter< const arma::mat >::type S(SSEXP);
+    rcpp_result_gen = Rcpp::wrap(dcc_constant_normal(Z, S));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_constant_student
-Rcpp::List dcc_constant_student(const arma::mat Z, const double shape);
-RcppExport SEXP _tsmarch_dcc_constant_student(SEXP ZSEXP, SEXP shapeSEXP) {
+Rcpp::List dcc_constant_student(const arma::mat Z, const arma::mat S, const double shape);
+RcppExport SEXP _tsmarch_dcc_constant_student(SEXP ZSEXP, SEXP SSEXP, SEXP shapeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type S(SSEXP);
     Rcpp::traits::input_parameter< const double >::type shape(shapeSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_constant_student(Z, shape));
+    rcpp_result_gen = Rcpp::wrap(dcc_constant_student(Z, S, shape));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_dynamic_normal
-Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, const arma::mat z, Rcpp::IntegerVector dccorder);
-RcppExport SEXP _tsmarch_dcc_dynamic_normal(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP zSEXP, SEXP dccorderSEXP) {
+Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder);
+RcppExport SEXP _tsmarch_dcc_dynamic_normal(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP zSEXP, SEXP sSEXP, SEXP dccorderSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -298,14 +300,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< const arma::vec >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type s(sSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dccorder(dccorderSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_normal(alpha, gamma, beta, z, dccorder));
+    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_normal(alpha, gamma, beta, z, s, dccorder));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_dynamic_student
-Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, Rcpp::IntegerVector dccorder);
-RcppExport SEXP _tsmarch_dcc_dynamic_student(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP shapeSEXP, SEXP zSEXP, SEXP dccorderSEXP) {
+Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder);
+RcppExport SEXP _tsmarch_dcc_dynamic_student(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP shapeSEXP, SEXP zSEXP, SEXP sSEXP, SEXP dccorderSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -314,8 +317,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< double >::type shape(shapeSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type s(sSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dccorder(dccorderSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_student(alpha, gamma, beta, shape, z, dccorder));
+    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_student(alpha, gamma, beta, shape, z, s, dccorder));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -336,33 +340,35 @@ BEGIN_RCPP
 END_RCPP
 }
 // dcc_constant_normal_filter
-Rcpp::List dcc_constant_normal_filter(const arma::mat z, const int n_update);
-RcppExport SEXP _tsmarch_dcc_constant_normal_filter(SEXP zSEXP, SEXP n_updateSEXP) {
+Rcpp::List dcc_constant_normal_filter(const arma::mat Z, const arma::mat S, const int n_update);
+RcppExport SEXP _tsmarch_dcc_constant_normal_filter(SEXP ZSEXP, SEXP SSEXP, SEXP n_updateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type S(SSEXP);
     Rcpp::traits::input_parameter< const int >::type n_update(n_updateSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_constant_normal_filter(z, n_update));
+    rcpp_result_gen = Rcpp::wrap(dcc_constant_normal_filter(Z, S, n_update));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_constant_student_filter
-Rcpp::List dcc_constant_student_filter(double shape, const arma::mat z, const int n_update);
-RcppExport SEXP _tsmarch_dcc_constant_student_filter(SEXP shapeSEXP, SEXP zSEXP, SEXP n_updateSEXP) {
+Rcpp::List dcc_constant_student_filter(double shape, const arma::mat Z, arma::mat S, const int n_update);
+RcppExport SEXP _tsmarch_dcc_constant_student_filter(SEXP shapeSEXP, SEXP ZSEXP, SEXP SSEXP, SEXP n_updateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< double >::type shape(shapeSEXP);
-    Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type S(SSEXP);
     Rcpp::traits::input_parameter< const int >::type n_update(n_updateSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_constant_student_filter(shape, z, n_update));
+    rcpp_result_gen = Rcpp::wrap(dcc_constant_student_filter(shape, Z, S, n_update));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_dynamic_normal_filter
-Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, const arma::mat z, Rcpp::IntegerVector dccorder, const int n_update);
-RcppExport SEXP _tsmarch_dcc_dynamic_normal_filter(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP zSEXP, SEXP dccorderSEXP, SEXP n_updateSEXP) {
+Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder, const int n_update);
+RcppExport SEXP _tsmarch_dcc_dynamic_normal_filter(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP zSEXP, SEXP sSEXP, SEXP dccorderSEXP, SEXP n_updateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -370,15 +376,16 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< const arma::vec >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type s(sSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dccorder(dccorderSEXP);
     Rcpp::traits::input_parameter< const int >::type n_update(n_updateSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_normal_filter(alpha, gamma, beta, z, dccorder, n_update));
+    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_normal_filter(alpha, gamma, beta, z, s, dccorder, n_update));
     return rcpp_result_gen;
 END_RCPP
 }
 // dcc_dynamic_student_filter
-Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, Rcpp::IntegerVector dccorder, const int n_update);
-RcppExport SEXP _tsmarch_dcc_dynamic_student_filter(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP shapeSEXP, SEXP zSEXP, SEXP dccorderSEXP, SEXP n_updateSEXP) {
+Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder, const int n_update);
+RcppExport SEXP _tsmarch_dcc_dynamic_student_filter(SEXP alphaSEXP, SEXP gammaSEXP, SEXP betaSEXP, SEXP shapeSEXP, SEXP zSEXP, SEXP sSEXP, SEXP dccorderSEXP, SEXP n_updateSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -387,9 +394,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::vec >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< double >::type shape(shapeSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type s(sSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type dccorder(dccorderSEXP);
     Rcpp::traits::input_parameter< const int >::type n_update(n_updateSEXP);
-    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_student_filter(alpha, gamma, beta, shape, z, dccorder, n_update));
+    rcpp_result_gen = Rcpp::wrap(dcc_dynamic_student_filter(alpha, gamma, beta, shape, z, s, dccorder, n_update));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -881,15 +889,15 @@ static const R_CallMethodDef CallEntries[] = {
     {"_tsmarch_p2P", (DL_FUNC) &_tsmarch_p2P, 2},
     {"_tsmarch_is_psd", (DL_FUNC) &_tsmarch_is_psd, 1},
     {"_tsmarch_array_mean", (DL_FUNC) &_tsmarch_array_mean, 1},
-    {"_tsmarch_dcc_constant_normal", (DL_FUNC) &_tsmarch_dcc_constant_normal, 1},
-    {"_tsmarch_dcc_constant_student", (DL_FUNC) &_tsmarch_dcc_constant_student, 2},
-    {"_tsmarch_dcc_dynamic_normal", (DL_FUNC) &_tsmarch_dcc_dynamic_normal, 5},
-    {"_tsmarch_dcc_dynamic_student", (DL_FUNC) &_tsmarch_dcc_dynamic_student, 6},
+    {"_tsmarch_dcc_constant_normal", (DL_FUNC) &_tsmarch_dcc_constant_normal, 2},
+    {"_tsmarch_dcc_constant_student", (DL_FUNC) &_tsmarch_dcc_constant_student, 3},
+    {"_tsmarch_dcc_dynamic_normal", (DL_FUNC) &_tsmarch_dcc_dynamic_normal, 6},
+    {"_tsmarch_dcc_dynamic_student", (DL_FUNC) &_tsmarch_dcc_dynamic_student, 7},
     {"_tsmarch_adcc_constraint", (DL_FUNC) &_tsmarch_adcc_constraint, 6},
-    {"_tsmarch_dcc_constant_normal_filter", (DL_FUNC) &_tsmarch_dcc_constant_normal_filter, 2},
-    {"_tsmarch_dcc_constant_student_filter", (DL_FUNC) &_tsmarch_dcc_constant_student_filter, 3},
-    {"_tsmarch_dcc_dynamic_normal_filter", (DL_FUNC) &_tsmarch_dcc_dynamic_normal_filter, 6},
-    {"_tsmarch_dcc_dynamic_student_filter", (DL_FUNC) &_tsmarch_dcc_dynamic_student_filter, 7},
+    {"_tsmarch_dcc_constant_normal_filter", (DL_FUNC) &_tsmarch_dcc_constant_normal_filter, 3},
+    {"_tsmarch_dcc_constant_student_filter", (DL_FUNC) &_tsmarch_dcc_constant_student_filter, 4},
+    {"_tsmarch_dcc_dynamic_normal_filter", (DL_FUNC) &_tsmarch_dcc_dynamic_normal_filter, 7},
+    {"_tsmarch_dcc_dynamic_student_filter", (DL_FUNC) &_tsmarch_dcc_dynamic_student_filter, 8},
     {"_tsmarch_dcc_dynamic_simulate", (DL_FUNC) &_tsmarch_dcc_dynamic_simulate, 13},
     {"_tsmarch_dcc_constant_simulate", (DL_FUNC) &_tsmarch_dcc_constant_simulate, 5},
     {"_tsmarch_rmvnorm", (DL_FUNC) &_tsmarch_rmvnorm, 2},

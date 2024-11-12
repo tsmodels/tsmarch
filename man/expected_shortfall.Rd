@@ -3,28 +3,40 @@
 \name{expected_shortfall}
 \alias{expected_shortfall}
 \alias{expected_shortfall.gogarch.predict}
+\alias{expected_shortfall.dcc.predict}
+\alias{expected_shortfall.cgarch.predict}
+\alias{expected_shortfall.gogarch.simulate}
+\alias{expected_shortfall.dcc.simulate}
+\alias{expected_shortfall.cgarch.simulate}
 \title{Expected Shortfall (ES) method for predicted and simulated objects}
 \usage{
 expected_shortfall(object, ...)
 
-\method{expected_shortfall}{gogarch.predict}(object, weights = NULL, alpha = 0.05, abs_tol = 1e-06, ...)
+\method{expected_shortfall}{gogarch.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{expected_shortfall}{dcc.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{expected_shortfall}{cgarch.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{expected_shortfall}{gogarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{expected_shortfall}{dcc.simulate}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{expected_shortfall}{cgarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
 }
 \arguments{
 \item{object}{an object from the predict or simulate methods.}
 
-\item{...}{additional parameters passed to the \code{\link{tsconvolve}} method
-for the GO-GARCH model.}
+\item{...}{not used.}
 
 \item{weights}{a vector of weights of length equal to the number of series. If
 NULL then an equal weight vector is used.}
 
-\item{alpha}{the quantile level for the value at risk.}
-
-\item{abs_tol}{the absolute tolerance used in the quadrature integration.}
+\item{alpha}{the quantile level for the value at risk.
+for the GOGARCH model.}
 }
 \value{
-an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
-sim x h of the value at risk.
+an xts matrix.
 }
 \description{
 Expected Shortfall (ES) method for predicted and simulated objects

@@ -54,7 +54,7 @@
     } else {
         distribution <- x$spec$distribution
     }
-    if (distribution == "gaussian") {
+    if (distribution == "mvn") {
         f <- function(x, y) .dmvnorm(cbind(x,y), mu = rep(0, 2), sigma = R)
     } else {
         shape <- x$parmatrix[parameter == "shape"]$value

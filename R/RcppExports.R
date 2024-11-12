@@ -73,40 +73,40 @@
     .Call(`_tsmarch_array_mean`, x)
 }
 
-.dcc_constant_normal <- function(Z) {
-    .Call(`_tsmarch_dcc_constant_normal`, Z)
+.dcc_constant_normal <- function(Z, S) {
+    .Call(`_tsmarch_dcc_constant_normal`, Z, S)
 }
 
-.dcc_constant_student <- function(Z, shape) {
-    .Call(`_tsmarch_dcc_constant_student`, Z, shape)
+.dcc_constant_student <- function(Z, S, shape) {
+    .Call(`_tsmarch_dcc_constant_student`, Z, S, shape)
 }
 
-.dcc_dynamic_normal <- function(alpha, gamma, beta, z, dccorder) {
-    .Call(`_tsmarch_dcc_dynamic_normal`, alpha, gamma, beta, z, dccorder)
+.dcc_dynamic_normal <- function(alpha, gamma, beta, z, s, dccorder) {
+    .Call(`_tsmarch_dcc_dynamic_normal`, alpha, gamma, beta, z, s, dccorder)
 }
 
-.dcc_dynamic_student <- function(alpha, gamma, beta, shape, z, dccorder) {
-    .Call(`_tsmarch_dcc_dynamic_student`, alpha, gamma, beta, shape, z, dccorder)
+.dcc_dynamic_student <- function(alpha, gamma, beta, shape, z, s, dccorder) {
+    .Call(`_tsmarch_dcc_dynamic_student`, alpha, gamma, beta, shape, z, s, dccorder)
 }
 
 .adcc_constraint <- function(alpha, gamma, beta, shape, z, dccorder) {
     .Call(`_tsmarch_adcc_constraint`, alpha, gamma, beta, shape, z, dccorder)
 }
 
-.dcc_constant_normal_filter <- function(z, n_update) {
-    .Call(`_tsmarch_dcc_constant_normal_filter`, z, n_update)
+.dcc_constant_normal_filter <- function(Z, S, n_update) {
+    .Call(`_tsmarch_dcc_constant_normal_filter`, Z, S, n_update)
 }
 
-.dcc_constant_student_filter <- function(shape, z, n_update) {
-    .Call(`_tsmarch_dcc_constant_student_filter`, shape, z, n_update)
+.dcc_constant_student_filter <- function(shape, Z, S, n_update) {
+    .Call(`_tsmarch_dcc_constant_student_filter`, shape, Z, S, n_update)
 }
 
-.dcc_dynamic_normal_filter <- function(alpha, gamma, beta, z, dccorder, n_update) {
-    .Call(`_tsmarch_dcc_dynamic_normal_filter`, alpha, gamma, beta, z, dccorder, n_update)
+.dcc_dynamic_normal_filter <- function(alpha, gamma, beta, z, s, dccorder, n_update) {
+    .Call(`_tsmarch_dcc_dynamic_normal_filter`, alpha, gamma, beta, z, s, dccorder, n_update)
 }
 
-.dcc_dynamic_student_filter <- function(alpha, gamma, beta, shape, z, dccorder, n_update) {
-    .Call(`_tsmarch_dcc_dynamic_student_filter`, alpha, gamma, beta, shape, z, dccorder, n_update)
+.dcc_dynamic_student_filter <- function(alpha, gamma, beta, shape, z, s, dccorder, n_update) {
+    .Call(`_tsmarch_dcc_dynamic_student_filter`, alpha, gamma, beta, shape, z, s, dccorder, n_update)
 }
 
 .dcc_dynamic_simulate <- function(alpha, gamma, beta, shape, Qbar, Nbar, Qinit, Zinit, std_noise, timesteps, burn, dccorder, distribution) {

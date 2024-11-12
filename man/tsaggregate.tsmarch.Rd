@@ -15,21 +15,21 @@
 \usage{
 \method{tsaggregate}{cgarch.estimate}(object, weights = NULL, ...)
 
-\method{tsaggregate}{cgarch.simulate}(object, weights = NULL, ...)
+\method{tsaggregate}{cgarch.simulate}(object, weights = NULL, distribution = TRUE, ...)
 
-\method{tsaggregate}{cgarch.predict}(object, weights = NULL, ...)
+\method{tsaggregate}{cgarch.predict}(object, weights = NULL, distribution = TRUE, ...)
 
 \method{tsaggregate}{dcc.estimate}(object, weights = NULL, ...)
 
-\method{tsaggregate}{dcc.simulate}(object, weights = NULL, ...)
+\method{tsaggregate}{dcc.simulate}(object, weights = NULL, distribution = TRUE, ...)
 
-\method{tsaggregate}{dcc.predict}(object, weights = NULL, ...)
+\method{tsaggregate}{dcc.predict}(object, weights = NULL, distribution = TRUE, ...)
 
 \method{tsaggregate}{gogarch.estimate}(object, weights = NULL, ...)
 
-\method{tsaggregate}{gogarch.predict}(object, weights = NULL, ...)
+\method{tsaggregate}{gogarch.predict}(object, weights = NULL, distribution = TRUE, ...)
 
-\method{tsaggregate}{gogarch.simulate}(object, weights = NULL, ...)
+\method{tsaggregate}{gogarch.simulate}(object, weights = NULL, distribution = TRUE, ...)
 }
 \arguments{
 \item{object}{an object of one of the model classes in the package.}
@@ -39,12 +39,16 @@ It is also possible to pass a time varying weighting matrix with time along the
 row dimension and equal to the number of time points or horizon.}
 
 \item{...}{not currently used.}
+
+\item{distribution}{for the predicted and simulated objects whether to return
+the simulated distribution of the weighted moments else the average.}
 }
 \value{
 A list with the weighted moments. For an estimated object class these
 will be xts vectors whilst for the simulated and predicted class these will be
 objects of class \dQuote{tsmodel.distribution} capturing the distributional
-uncertainty and for which a default plot method exists.
+uncertainty and for which a default plot method exists, unless argument
+\dQuote{distribution} is set to FALSE.
 }
 \description{
 Calculates and returns the weighted moments of the

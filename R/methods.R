@@ -24,7 +24,7 @@ cgarch_modelspec <- function(object, ...)
 #' @param copula the copula distribution.
 #' @param transformation the copula transformation to apply.
 #' @param constant_correlation the constant correlation estimator to use. In the
-#' case of the \dQuote{student} copula, only Kendall's tau is a valid choice.
+#' case of the \dQuote{mvt} copula, only Kendall's tau is a valid choice.
 #' @param cond_mean an optional matrix of the conditional mean for the series.
 #' @param ... additional arguments passed to the \code{\link[tsdistributions]{spd_modelspec}}
 #' function in the case of the \dQuote{spd} transformation.
@@ -36,13 +36,13 @@ cgarch_modelspec <- function(object, ...)
 cgarch_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant","dcc","adcc"),
                                         dcc_order = c(1,1),
                                         transformation = c("parametric","empirical","spd"),
-                                        copula = c("gaussian","student"),
+                                        copula = c("mvn","mvt"),
                                         constant_correlation = c("pearson", "kendall","spearman"),
                                         cond_mean = NULL, ...)
 {
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
     transformation <- match.arg(transformation[1], c("parametric","empirical","spd"))
-    copula <- match.arg(copula[1], c("gaussian","student"))
+    copula <- match.arg(copula[1], c("mvn","mvt"))
     spec <- list()
     spec$target$y <- coredata(residuals(object))
     if (!is.null(cond_mean)) {
@@ -63,7 +63,7 @@ cgarch_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("consta
     spec$dynamics$model <- dynamics
     spec$dynamics$order <- dcc_order
     spec$dynamics$constant <- match.arg(constant_correlation[1], c("pearson", "kendall","spearman"))
-    if (copula == "student") {
+    if (copula == "mvt") {
         if (spec$dynamics$constant != "kendall") {
             spec$dynamics$constant = "kendall"
             warnings("\nstudent copula only available with kendall's tau correlation. Forcing to correlation kendall.")
@@ -121,7 +121,7 @@ dcc_modelspec <- function(object, ...)
 #' @param dynamics the type of correlation dynamics to use.
 #' @param dcc_order the order of the dynamics in case of \dQuote{dcc} or \dQuote{adcc}
 #' correlation models.
-#' @param distribution the multivariate distribution. If using the \dQuote{student},
+#' @param distribution the multivariate distribution. If using the \dQuote{mvt},
 #' then the first stage univariate models should use the normal distribution.
 #' @param cond_mean an optional matrix of the conditional mean for the series.
 #' @param ... not currently used.
@@ -132,11 +132,11 @@ dcc_modelspec <- function(object, ...)
 #'
 dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant","dcc","adcc"),
                                         dcc_order = c(1,1),
-                                        distribution = c("gaussian","student"),
+                                        distribution = c("mvn","mvt"),
                                         cond_mean = NULL, ...)
 {
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
-    distribution <- match.arg(distribution[1], c("gaussian","student"))
+    distribution <- match.arg(distribution[1], c("mvn","mvt"))
     spec <- list()
     spec$target$y <- coredata(residuals(object))
     if (!is.null(cond_mean)) {
@@ -181,11 +181,11 @@ dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant"
 #' @param solver the solver to use for the second stage estimation of the multivariate
 #' dynamics. Valid choices are \code{\link[Rsolnp]{solnp}}, \code{\link[nloptr]{nloptr}}
 #' and \code{\link[stats]{optim}}, with the latter using the \dQuote{L-BFGS-B} method.
-#' This option is inactive for the GO-GARCH model which uses the default solver in
+#' This option is inactive for the GOGARCH model which uses the default solver in
 #' package \dQuote{tsgarch} for the estimation of the independent factors.
 #' @param control solver control parameters.
 #' @param return_hessian whether to calculate and return the partitioned hessian
-#' of the model (see details). Not applicable in the case of the GO-GARCH model.
+#' of the model (see details). Not applicable in the case of the GOGARCH model.
 #' @param trace whether to print tracing information for the GOGARCH model estimation.
 #' @param ... for the GOGARCH model, additional options passed to the \code{\link{radical}}
 #' function.
@@ -203,7 +203,7 @@ dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant"
 #' Additionally, the option of not calculating the hessian (\dQuote{return_hessian})
 #' is available. In that case, the scores are still calculated and the resulting
 #' standard errors will be based on the outer product of gradients.
-#' ## GO-GARCH Model
+#' ## GOGARCH Model
 #' The independent factors are calculated by first pre-whitening the data (PCA),
 #' selecting the number of factors, and then solving for the rotation matrix. A
 #' GARCH model is then estimated on each factor. A minimal amount of information
@@ -474,11 +474,11 @@ predict.gogarch.estimate <- function(object, h = 1, nsim = 1000, sim_method = c(
 # sigma ---------------------------------------------------
 sigma_extractor <- function(object)
 {
-    if (grepl("estimate", class(object))) {
+    if (any(grepl("estimate", class(object)))) {
         return(sigma(object$univariate))
-    } else if (grepl("predict", class(object))) {
+    } else if (any(grepl("predict", class(object)))) {
 
-    } else if (grepl("simulate", class(object))) {
+    } else if (any(grepl("simulate", class(object)))) {
 
     } else {
         stop("\nunknown class")
@@ -805,7 +805,9 @@ tscov_gogarch_predict <- function(object, distribution = FALSE)
         H[,,,i] <- tmp
     }
     if (!distribution) {
-        H <- array_matrix_mean(H)
+        V <- do.call(cbind, lapply(object$univariate, function(x) coredata(x$sigma^2)))
+        tmp <- .gogarch_covariance(V, object$ica$A)
+        H <- .tril2sym(tmp, object$spec$n_series, TRUE)
     }
     attr(H,"index") <- as.character(object$forc_dates)
     attr(H,"series") <- object$spec$series_names
@@ -1029,7 +1031,11 @@ tscor_gogarch_predict <- function(object, distribution = TRUE, ...)
         R[,,,i] <- tmp
     }
     if (!distribution) {
-        R <- array_matrix_mean(R)
+        H <- tscov_gogarch_predict(object, distribution = FALSE)
+        R <- array(0, dim = c(n_series, n_series, h))
+        for (i in 1:h) {
+            R[,,i] <- cov2cor(H[,,i])
+        }
     }
     attr(R,"index") <- as.character(object$forc_dates)
     attr(R,"series") <- object$spec$series_names
@@ -1051,6 +1057,9 @@ tscor_gogarch_simulate <- function(object, distribution = TRUE, ...)
     }
     if (!distribution) {
         R <- array_matrix_mean(R)
+        for (i in 1:h) {
+            diag(R[,,i]) <- 1
+        }
     }
     attr(R,"index") <- 1:nsim
     attr(R,"series") <- object$spec$series_names
@@ -1549,9 +1558,9 @@ logLik_estimate <- function(object, ...)
 #' number of timesteps (i.e. the number of observations per series).
 #' @details
 #' For all models in the package, the log-likelihood is a combination of the univariate
-#' log-likelihood and the multivariate log-likelihood. For the GO-GARCH model, being an
+#' log-likelihood and the multivariate log-likelihood. For the GOGARCH model, being an
 #' independent factor model, this is the sum of the univariate GARCH log-likelihoods
-#' plus a term for the mixing matrix. The number of parameters in the GO-GARCH model
+#' plus a term for the mixing matrix. The number of parameters in the GOGARCH model
 #' reported (\dQuote{df}) represents the univariate independent factor parameters
 #' plus the number of parameters in the rotation matrix U of the ICA algorithm.
 #' @aliases logLik
@@ -1669,7 +1678,7 @@ vcov.dcc.estimate <- function(object, adjust = FALSE, type = c("H","OP","QMLE","
 #'
 summary.cgarch.estimate <- function(object, vcov_type = "OP", ...)
 {
-    if (object$spec$dynamics$model == "constant" & object$spec$copula == "gaussian") {
+    if (object$spec$dynamics$model == "constant" & object$spec$copula == "mvn") {
         estimate <- NULL
         V <- NULL
         est <- NULL
@@ -1738,7 +1747,7 @@ summary.cgarch.estimate <- function(object, vcov_type = "OP", ...)
 #'
 summary.dcc.estimate <- function(object, vcov_type = "OP", ...)
 {
-    if (object$spec$dynamics$model == "constant" & object$spec$distribution == "gaussian") {
+    if (object$spec$dynamics$model == "constant" & object$spec$distribution == "mvn") {
         estimate <- NULL
         V <- NULL
         est <- NULL
@@ -1751,7 +1760,7 @@ summary.dcc.estimate <- function(object, vcov_type = "OP", ...)
         distribution <- object$spec$copula
         coefficients <- NULL
         elapsed <- object$elapsed
-        out <- list(coefficients = coefficients, distribution = distribution,
+        out <- list(coefficients = coefficients, distribution = object$spec$distribution,
                     loglikelihood = llh, n_obs = n_obs, n_parameters = n_parameters,
                     n_series = n_series,
                     AIC = AIC(object),
@@ -1890,11 +1899,14 @@ print.summary.gogarch.estimate <- function(x, digits = max(3L, getOption("digits
 #' @param weights an optional weighting vector. If NULL will use an equal weight vector.
 #' It is also possible to pass a time varying weighting matrix with time along the
 #' row dimension and equal to the number of time points or horizon.
+#' @param distribution for the predicted and simulated objects whether to return
+#' the simulated distribution of the weighted moments else the average.
 #' @param ... not currently used.
 #' @returns A list with the weighted moments. For an estimated object class these
 #' will be xts vectors whilst for the simulated and predicted class these will be
 #' objects of class \dQuote{tsmodel.distribution} capturing the distributional
-#' uncertainty and for which a default plot method exists.
+#' uncertainty and for which a default plot method exists, unless argument
+#' \dQuote{distribution} is set to FALSE.
 #' @aliases tsaggregate
 #' @method tsaggregate cgarch.estimate
 #' @rdname tsaggregate.tsmarch
@@ -1924,7 +1936,7 @@ tsaggregate.cgarch.estimate <- function(object, weights = NULL, ...)
 #' @export
 #'
 #'
-tsaggregate.cgarch.simulate <- function(object, weights = NULL, ...)
+tsaggregate.cgarch.simulate <- function(object, weights = NULL, distribution = TRUE, ...)
 {
     n <- object$h
     w <- .check_weights(weights, m = object$n_series, n)
@@ -1933,12 +1945,19 @@ tsaggregate.cgarch.simulate <- function(object, weights = NULL, ...)
     }
     mu <- object$mu
     wmu <- .aggregate_mu(object$mu, w)
-    class(wmu) <- "tsmodel.distribution"
-    attr(mu, "date_class") <- "numeric"
     wsigma <- .aggregate_sigma(object$H, w)
     wsigma <- sqrt(wsigma)
-    class(wsigma) <- "tsmodel.distribution"
-    attr(wsigma, "date_class") <- "numeric"
+    if (distribution) {
+        class(wsigma) <- "tsmodel.distribution"
+        attr(wsigma, "date_class") <- "numeric"
+        class(wmu) <- "tsmodel.distribution"
+        attr(mu, "date_class") <- "numeric"
+    } else {
+        wsigma <- matrix(sqrt(colMeans(wsigma^2)), nrow = 1)
+        wmu <- matrix(colMeans(wmu), nrow = 1)
+        colnames(wsigma) <- "sigma"
+        colnames(mu) <- "mu"
+    }
     return(list(mu = wmu, sigma = wsigma))
 }
 
@@ -1948,7 +1967,7 @@ tsaggregate.cgarch.simulate <- function(object, weights = NULL, ...)
 #' @export
 #'
 #'
-tsaggregate.cgarch.predict <- function(object, weights = NULL, ...)
+tsaggregate.cgarch.predict <- function(object, weights = NULL, distribution = TRUE, ...)
 {
     n <- object$h
     w <- .check_weights(weights, m = object$n_series, n)
@@ -1957,12 +1976,19 @@ tsaggregate.cgarch.predict <- function(object, weights = NULL, ...)
     }
     mu <- object$mu
     wmu <- .aggregate_mu(mu, w)
-    colnames(wmu) <- as.character(object$forc_dates)
-    class(wmu) <- "tsmodel.distribution"
     wsigma <- .aggregate_sigma(object$H, w)
     wsigma <- sqrt(wsigma)
-    colnames(wsigma) <- as.character(object$forc_dates)
-    class(wsigma) <- "tsmodel.distribution"
+    if (distribution) {
+        class(wmu) <- "tsmodel.distribution"
+        colnames(wmu) <- as.character(object$forc_dates)
+        colnames(wsigma) <- as.character(object$forc_dates)
+        class(wsigma) <- "tsmodel.distribution"
+    } else {
+        wsigma <- xts(sqrt(colMeans(wsigma^2)), object$forc_dates)
+        wmu <- xts(colMeans(wmu), object$forc_dates)
+        colnames(wsigma) <- "sigma"
+        colnames(mu) <- "mu"
+    }
     return(list(mu = wmu, sigma = wsigma))
 }
 
@@ -1974,7 +2000,7 @@ tsaggregate.cgarch.predict <- function(object, weights = NULL, ...)
 #'
 tsaggregate.dcc.estimate <- function(object, weights = NULL, ...)
 {
-    return(tsaggregate.cgarch.estimate(object, weights, ...))
+    return(tsaggregate.cgarch.estimate(object = object, weights = weights, ...))
 }
 
 
@@ -1983,9 +2009,9 @@ tsaggregate.dcc.estimate <- function(object, weights = NULL, ...)
 #' @export
 #'
 #'
-tsaggregate.dcc.simulate <- function(object, weights = NULL, ...)
+tsaggregate.dcc.simulate <- function(object, weights = NULL, distribution = TRUE, ...)
 {
-    return(tsaggregate.cgarch.simulate(object, weights = NULL, ...))
+    return(tsaggregate.cgarch.simulate(object, weights = weights, distribution = distribution, ...))
 }
 
 
@@ -1994,9 +2020,9 @@ tsaggregate.dcc.simulate <- function(object, weights = NULL, ...)
 #' @export
 #'
 #'
-tsaggregate.dcc.predict <- function(object, weights = NULL, ...)
+tsaggregate.dcc.predict <- function(object, weights = NULL, distribution = TRUE, ...)
 {
-    return(tsaggregate.cgarch.predict(object, weights = NULL, ...))
+    return(tsaggregate.cgarch.predict(object, weights = weights, distribution = distribution, ...))
 }
 
 #' @method tsaggregate gogarch.estimate
@@ -2035,34 +2061,62 @@ tsaggregate.gogarch.estimate <- function(object, weights = NULL, ...)
 #' @rdname tsaggregate.tsmarch
 #' @export
 #'
-tsaggregate.gogarch.predict <- function(object, weights = NULL, ...)
+tsaggregate.gogarch.predict <- function(object, weights = NULL, distribution = TRUE, ...)
 {
     n <- object$h
     w <- .check_weights(weights, m = object$spec$n_series, n)
     if (NROW(w) == 1) {
         w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
     }
-    h <- NCOL(object$univariate[[1]]$sigma_sim)
-    nsim <- NROW(object$univariate[[1]]$sigma_sim)
-    mu <- object$mu
-    w_mu <- matrix(NA, ncol = n, nrow = nsim)
-    for (i in 1:n) {
-        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
-    }
-    w_sigma <- .gogarch_port_sigma_simulate(object, w)
-    forc_dates <- as.character(object$forc_dates)
-    if (object$spec$distribution == 'norm') {
-        w_mu <- .set_distribution_class(w_mu, forc_dates)
-        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
-        L <- list(mu = w_mu, sigma = w_sigma)
+    if (distribution) {
+        nsim <- NROW(object$univariate[[1]]$sigma_sim)
+        mu <- object$mu
+        w_mu <- matrix(NA, ncol = n, nrow = nsim)
+        for (i in 1:n) {
+            w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+        }
+        w_sigma <- .gogarch_port_sigma_simulate(object, w)
+        forc_dates <- as.character(object$forc_dates)
+        if (object$spec$distribution == 'norm') {
+            w_mu <- .set_distribution_class(w_mu, forc_dates)
+            w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+            L <- list(mu = w_mu, sigma = w_sigma)
+        } else {
+            w_skew <- .gogarch_port_skewness_simulate(object, w, w_sigma)
+            w_kurt <- .gogarch_port_kurtosis_simulate(object, w, w_sigma)
+            w_mu <- .set_distribution_class(w_mu, forc_dates)
+            w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+            w_skew <- .set_distribution_class(w_skew, forc_dates)
+            w_kurt <- .set_distribution_class(w_kurt, forc_dates)
+            L <- list(mu = w_mu, sigma = w_sigma, skewness = w_skew, kurtosis = w_kurt)
+        }
     } else {
-        w_skew <- .gogarch_port_skewness_simulate(object, w, w_sigma)
-        w_kurt <- .gogarch_port_kurtosis_simulate(object, w, w_sigma)
-        w_mu <- .set_distribution_class(w_mu, forc_dates)
-        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
-        w_skew <- .set_distribution_class(w_skew, forc_dates)
-        w_kurt <- .set_distribution_class(w_kurt, forc_dates)
+        mu <- t(apply(object$mu, 1, rowMeans))
+        w_mu <- matrix(NA, ncol = 1, nrow = n)
+        for (i in 1:n) {
+            w_mu[i,] <- sum(mu[i,] * w[i,])
+        }
+        H <- tscov(object, distribution = FALSE)
+        w_sigma <- matrix(NA, ncol = 1, nrow = n)
+        for (i in 1:n) {
+            w_sigma[i,] <- sqrt(w[i,] %*% H[,,i] %*% w[i,])
+        }
+        A <- object$ica$A
+        m <- NROW(A)
+        sig <- do.call(cbind, lapply(1:m, function(i) coredata(object$univariate[[i]]$sigma)))
+        colnames(sig) <- NULL
+        sk <- .gogarch_dskewness(object)
+        sk <- matrix(sk, ncol = m, nrow = n, byrow = TRUE) * sig^3
+        w_skew <- .gogarch_skewness_weighted(A, sk, w)/w_sigma^3
+        ku <- .gogarch_dkurtosis(object)
+        ku <- matrix(ku, ncol = m, nrow = n, byrow = TRUE) * sig^4
+        w_kurt <- .gogarch_kurtosis_weighted(A, K = ku, V = sig^2, w = w)/w_sigma^4
+        w_mu <- .make_xts(w_mu, object$forc_dates)
+        w_sigma <- .make_xts(w_sigma, object$forc_dates)
+        w_skew <- .make_xts(w_skew, object$forc_dates)
+        w_kurt <- .make_xts(w_kurt, object$forc_dates)
         L <- list(mu = w_mu, sigma = w_sigma, skewness = w_skew, kurtosis = w_kurt)
+        # cbind |> do.call(tmp)
     }
     return(L)
 }
@@ -2071,33 +2125,57 @@ tsaggregate.gogarch.predict <- function(object, weights = NULL, ...)
 #' @rdname tsaggregate.tsmarch
 #' @export
 #'
-tsaggregate.gogarch.simulate <- function(object, weights = NULL, ...)
+tsaggregate.gogarch.simulate <- function(object, weights = NULL, distribution = TRUE, ...)
 {
     n <- object$h
     w <- .check_weights(weights, m = object$spec$n_series, n)
     if (NROW(w) == 1) {
         w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
     }
-    h <- NCOL(object$univariate[[1]]$sigma)
-    nsim <- NROW(object$univariate[[1]]$sigma)
-    mu <- object$mu
-    w_mu <- matrix(NA, ncol = n, nrow = nsim)
-    for (i in 1:n) {
-        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
-    }
-    w_sigma <- .gogarch_port_sigma_simulate(object, w)
-    forc_dates <- as.character(object$forc_dates)
-    if (object$spec$distribution == 'norm') {
-        w_mu <- .set_distribution_class(w_mu, forc_dates)
-        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
-        L <- list(mu = w_mu, sigma = w_sigma)
+    if (distribution) {
+        h <- NCOL(object$univariate[[1]]$sigma)
+        nsim <- NROW(object$univariate[[1]]$sigma)
+        mu <- object$mu
+        w_mu <- matrix(NA, ncol = n, nrow = nsim)
+        for (i in 1:n) {
+            w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+        }
+        w_sigma <- .gogarch_port_sigma_simulate(object, w)
+        forc_dates <- as.character(object$forc_dates)
+        if (object$spec$distribution == 'norm') {
+            w_mu <- .set_distribution_class(w_mu, forc_dates)
+            w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+            L <- list(mu = w_mu, sigma = w_sigma)
+        } else {
+            w_skew <- .gogarch_port_skewness_simulate(object, w, w_sigma)
+            w_kurt <- .gogarch_port_kurtosis_simulate(object, w, w_sigma)
+            w_mu <- .set_distribution_class(w_mu, forc_dates)
+            w_sigma <- .set_distribution_class(w_sigma, forc_dates)
+            w_skew <- .set_distribution_class(w_skew, forc_dates)
+            w_kurt <- .set_distribution_class(w_kurt, forc_dates)
+            L <- list(mu = w_mu, sigma = w_sigma, skewness = w_skew, kurtosis = w_kurt)
+        }
     } else {
-        w_skew <- .gogarch_port_skewness_simulate(object, w, w_sigma)
-        w_kurt <- .gogarch_port_kurtosis_simulate(object, w, w_sigma)
-        w_mu <- .set_distribution_class(w_mu, forc_dates)
-        w_sigma <- .set_distribution_class(w_sigma, forc_dates)
-        w_skew <- .set_distribution_class(w_skew, forc_dates)
-        w_kurt <- .set_distribution_class(w_kurt, forc_dates)
+        mu <- t(apply(object$mu, 1, rowMeans))
+        w_mu <- matrix(NA, ncol = 1, nrow = n)
+        for (i in 1:n) {
+            w_mu[i,] <- sum(mu[i,] * w[i,])
+        }
+        H <- tscov(object, distribution = FALSE)
+        w_sigma <- matrix(NA, ncol = 1, nrow = n)
+        for (i in 1:n) {
+            w_sigma[i,] <- sqrt(w[i,] %*% H[,,i] %*% w[i,])
+        }
+        A <- object$ica$A
+        m <- NROW(A)
+        sig <- do.call(cbind, lapply(1:m, function(i) sqrt(colMeans(coredata(object$univariate[[i]]$sigma^2)))))
+        colnames(sig) <- NULL
+        sk <- .gogarch_dskewness(object)
+        sk <- matrix(sk, ncol = m, nrow = n, byrow = TRUE) * sig^3
+        w_skew <- .gogarch_skewness_weighted(A, sk, w)/w_sigma^3
+        ku <- .gogarch_dkurtosis(object)
+        ku <- matrix(ku, ncol = m, nrow = n, byrow = TRUE) * sig^4
+        w_kurt <- .gogarch_kurtosis_weighted(A, K = ku, V = sig^2, w = w)/w_sigma^4
         L <- list(mu = w_mu, sigma = w_sigma, skewness = w_skew, kurtosis = w_kurt)
     }
     return(L)
@@ -2114,7 +2192,7 @@ tsaggregate.gogarch.simulate <- function(object, weights = NULL, ...)
 #' @param object an object of one of the estimated model classes in the package.
 #' @param epsilon not used.
 #' @param pair the pair of series for which to generate the news impact surface.
-#' @param factor the pair of factors for which to generate the news impact surface for the GO-GARCH model.
+#' @param factor the pair of factors for which to generate the news impact surface for the GOGARCH model.
 #' @param type either \dQuote{correlation} or \dQuote{covariance}.
 #' @param ... additional parameters passed to the method.
 #' @returns An object of class \dQuote{tsmarch.newsimpact} which has a plot method.
@@ -2169,7 +2247,7 @@ newsimpact.gogarch.estimate <- function(object, epsilon = NULL, pair = c(1,2), f
 
 
     switch(type,
-           "correlation" = .gogarch_newsimpact_correlation(object, pair),
+           "correlation" = .gogarch_newsimpact_correlation(object, pair, factor),
            "covariance" = .gogarch_newsimpact_covariance(object, pair, factor))
 }
 
@@ -2214,10 +2292,13 @@ plot.tsmarch.newsimpact <- function(x, y = NULL, ...)
 #' @param fft_by determines the resolution for the equally spaced support given by \code{fft_support}.
 #' @param fft_support allows either a fixed support range to be given for the inversion else this is
 #' calculated (if NULL) by examining the upper and lower quantiles of each independent factor modeled.
-#' For the Generalized Hyperbolic distribution, it is not reccomended to leave this as NULL since
+#' For the Generalized Hyperbolic distribution, it is not recommended to leave this as NULL since
 #' it is quite expensive to calculate the quantiles and will significantly slow down execution time.
+#' @param distribution for the simulated and predicted object, whether to apply to each draw or on the
+#' average across draws (for the predicted object this is the analytic solution rather than the
+#' average).
 #' @param ... not currently supported.
-#' @returns an object of class \dQuote{gogarch.fft}
+#' @returns an object of class \dQuote{gogarch.fft} or \dQuote{gogarch.fftsim}.
 #' @details
 #' The Fast Fourier Transformation (FFT) is used to approximate the weighted
 #' density based on its characteristic function. The weighted density is based
@@ -2254,7 +2335,7 @@ tsconvolve.gogarch.estimate <- function(object, weights = NULL, fft_step = 0.001
         pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
 
     } else {
-        stop("\nconvolution not required for distribution norm.")
+        stop("\nconvolution not required for normal distribution.")
     }
     sig <- coredata(sigma(object$univariate))[1:n, ]
     mu <- object$mu
@@ -2296,73 +2377,13 @@ tsconvolve.gogarch.estimate <- function(object, weights = NULL, fft_step = 0.001
 #' @rdname tsconvolve
 #' @export
 #'
-tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), ...)
+tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), distribution = FALSE, ...)
 {
-    elapsed <- Sys.time()
-    n <- object$h
-    nsim <- object$nsim
-    A <- object$ica$A
-    m <- NROW(A)
-    w <- .check_weights(weights, m = object$spec$n_series, n)
-    if (NROW(w) == 1) {
-        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
-    }
-    parmatrix <- .get_garch_parameters(object)
-    # transform to alpha, beta, delta, mu, lambda
-    if (object$spec$distribution == "nig") {
-        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
-            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
-        }))
-        # sort to have alpha beta delta mu
-        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
-    } else if (object$spec$distribution == "gh") {
-        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
-            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
-        }))
-        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
-        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
-        colnames(pmatrix_std)[5] <- "lambda"
+    if (distribution) {
+        L <- .gogarch_convolution_prediction_d(object,  weights = weights, fft_step = fft_step, fft_by = fft_by, fft_support = fft_support)
     } else {
-        stop("\nconvolution not required for distribution norm.")
+        L <- .gogarch_convolution_prediction(object,  weights = weights, fft_step = fft_step, fft_by = fft_by, fft_support = fft_support)
     }
-    # no uncertainty for h = 1
-    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
-    sig <- array(unlist(sig), dim = c(nsim, n, m))
-    sig <- aperm(sig, perm = c(2,3,1))
-    mu <- object$mu
-    w_mu <- matrix(NA, ncol = n, nrow = nsim)
-    for (i in 1:n) {
-        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
-    }
-    Q <- future_lapply(1:nsim, function(s) {
-        w_hat <- matrix(NA, ncol = m, nrow = n)
-        for (i in 1:n) {
-            dS <- diag(sig[i,,s])
-            w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
-        }
-        if (object$spec$distribution == "nig") {
-            w_pars <- array(data = NA, dim = c(m, 4, n))
-            # Scaling of parameters (Blaesild)
-            for (j in 1:m) {
-                tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
-                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
-                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
-            }
-            out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
-        } else if (object$spec$distribution == "gh") {
-            w_pars <- array(data = NA, dim = c(m, 5, n))
-            # Scaling of parameters (Blaesild)
-            for (j in 1:m) {
-                tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
-                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
-                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
-            }
-            out <- .gh_fft_sim(w_pars, fft_support, fft_step, fft_by)
-        }
-    }, future.seed = TRUE)
-    elapsed <- Sys.time() - elapsed
-    L <- list(y = Q, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by, elapsed = elapsed)
-    class(L) <- "gogarch.fftsim"
     return(L)
 }
 
@@ -2370,73 +2391,13 @@ tsconvolve.gogarch.predict <- function(object, weights = NULL, fft_step = 0.001,
 #' @rdname tsconvolve
 #' @export
 #'
-tsconvolve.gogarch.simulate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), ...)
+tsconvolve.gogarch.simulate <- function(object, weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1), distribution = FALSE, ...)
 {
-    elapsed <- Sys.time()
-    n <- object$h
-    nsim <- object$nsim
-    A <- object$ica$A
-    m <- NROW(A)
-    w <- .check_weights(weights, m = object$spec$n_series, n)
-    if (NROW(w) == 1) {
-        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
-    }
-    parmatrix <- .get_garch_parameters(object)
-    # transform to alpha, beta, delta, mu, lambda
-    if (object$spec$distribution == "nig") {
-        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
-            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
-        }))
-        # sort to have alpha beta delta mu
-        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
-    } else if (object$spec$distribution == "gh") {
-        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
-            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
-        }))
-        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
-        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
-        colnames(pmatrix_std)[5] <- "lambda"
+    if (distribution) {
+        L <- .gogarch_convolution_simulation_d(object,  weights = weights, fft_step = fft_step, fft_by = fft_by, fft_support = fft_support)
     } else {
-        stop("\nconvolution not required for distribution norm.")
+        L <- .gogarch_convolution_simulation(object,  weights = weights, fft_step = fft_step, fft_by = fft_by, fft_support = fft_support)
     }
-    # no uncertainty for h = 1
-    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma)
-    sig <- array(unlist(sig), dim = c(nsim, n, m))
-    sig <- aperm(sig, perm = c(2,3,1))
-    mu <- object$mu
-    w_mu <- matrix(NA, ncol = n, nrow = nsim)
-    for (i in 1:n) {
-        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
-    }
-    Q <- future_lapply(1:nsim, function(s) {
-        w_hat <- matrix(NA, ncol = m, nrow = n)
-        for (i in 1:n) {
-            dS <- diag(sig[i,,s])
-            w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
-        }
-        if (object$spec$distribution == "nig") {
-            w_pars <- array(data = NA, dim = c(m, 4, n))
-            # Scaling of parameters (Blaesild)
-            for (j in 1:m) {
-                tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
-                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
-                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
-            }
-            out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
-        } else if (object$spec$distribution == "gh") {
-            w_pars <- array(data = NA, dim = c(m, 5, n))
-            # Scaling of parameters (Blaesild)
-            for (j in 1:m) {
-                tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
-                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
-                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
-            }
-            out <- .gh_fft_sim(w_pars, fft_support, fft_step, fft_by)
-        }
-    }, future.seed = TRUE)
-    elapsed <- Sys.time() - elapsed
-    L <- list(y = Q, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by, elapsed = elapsed)
-    class(L) <- "gogarch.fftsim"
     return(L)
 }
 
@@ -2630,7 +2591,55 @@ plot.cgarch.estimate <- function(x, y = NULL, series = NULL, index_format = "%Y"
     }
 }
 
-# risk measures ---------------------------------------------------
+# value at risk ---------------------------------------------------
+
+value_at_risk_dcc <- function(object, weights = NULL, alpha = 0.05) {
+    alpha <- alpha[1]
+    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
+    if (is.null(weights)) {
+        warning("\nweights not specified, using equal weights.")
+        weights <- rep(1/object$spec$n_series, object$spec$n_series)
+    }
+    a <- tsaggregate(object, weights = weights)
+    var_value <- apply(a$mu, 2, quantile, alpha)
+    if (any(grepl(pattern = "predict", x = class(object)))) {
+        var_value <- xts(as.numeric(var_value), object$forc_dates)
+    } else {
+        var_value <- matrix(as.numeric(var_value), ncol = 1)
+    }
+    colnames(var_value) <- "VaR"
+    return(var_value)
+}
+
+value_at_risk_gogarch <- function(object, weights = NULL, alpha = 0.05) {
+    alpha <- alpha[1]
+    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
+    if (is.null(weights)) {
+        warning("\nweights not specified, using equal weights.")
+        weights <- rep(1/object$spec$n_series, object$spec$n_series)
+    }
+    nsim <- object$nsim
+    mu <- object$mu
+    n <- object$h
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    w_mu <- matrix(NA, ncol = n, nrow = nsim)
+    for (i in 1:n) {
+        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+    }
+    var_value <- apply(w_mu, 2, quantile, alpha)
+    if (any(grepl(pattern = "predict", x = class(object)))) {
+        var_value <- xts(as.numeric(var_value), object$forc_dates)
+    } else {
+        var_value <- matrix(as.numeric(var_value), ncol = 1)
+    }
+    colnames(var_value) <- "VaR"
+    return(var_value)
+}
+
+
 #' @rdname value_at_risk
 #' @export
 #'
@@ -2645,39 +2654,112 @@ value_at_risk <- function(object, ...)
 #' @param weights a vector of weights of length equal to the number of series. If
 #' NULL then an equal weight vector is used.
 #' @param alpha the quantile level for the value at risk.
-#' @param ... additional parameters passed to the \code{\link{tsconvolve}} method
-#' for the GO-GARCH model.
-#' @return an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
-#' sim x h of the value at risk.
+#' @param ... not used.
+#' @return an xts matrix.
 #' @export
 #' @method value_at_risk gogarch.predict
 #' @rdname value_at_risk
 value_at_risk.gogarch.predict <- function(object, weights = NULL, alpha = 0.05, ...)
 {
+    var_value <- value_at_risk_gogarch(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+#' @export
+#' @method value_at_risk dcc.predict
+#' @rdname value_at_risk
+value_at_risk.dcc.predict <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    var_value <- value_at_risk_dcc(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+#' @export
+#' @method value_at_risk cgarch.predict
+#' @rdname value_at_risk
+value_at_risk.cgarch.predict <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    var_value <- value_at_risk_dcc(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+
+#' @export
+#' @method value_at_risk gogarch.simulate
+#' @rdname value_at_risk
+value_at_risk.gogarch.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    var_value <- value_at_risk_gogarch(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+#' @export
+#' @method value_at_risk dcc.simulate
+#' @rdname value_at_risk
+value_at_risk.dcc.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    var_value <- value_at_risk_dcc(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+#' @export
+#' @method value_at_risk cgarch.simulate
+#' @rdname value_at_risk
+value_at_risk.cgarch.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    var_value <- value_at_risk_dcc(object, weights = weights, alpha = alpha)
+    return(var_value)
+}
+
+
+# expected shortfall ---------------------------------------------------
+
+expected_shortfall_dcc <- function(object, weights = NULL, alpha = 0.05) {
+    alpha <- alpha[1]
     if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
     if (is.null(weights)) {
         warning("\nweights not specified, using equal weights.")
         weights <- rep(1/object$spec$n_series, object$spec$n_series)
     }
-    if (object$spec$distribution == "norm") {
-        a <- tsaggregate(object, weights = weights)
-        var_value <- do.call(cbind, lapply(1:object$h, function(i) {
-            qnorm(alpha, mean = a$mu[,i], sd = a$sigma[,i])
-        }))
-        colnames(var_value) <- colnames(a$mu)
-        class(var_value) <- "tsmodel.distribution"
+    a <- tsaggregate(object, weights = weights)
+    es_value <- apply(a$mu, 2, .es_empirical_calculation, alpha)
+    if (any(grepl(pattern = "predict", x = class(object)))) {
+        es_value <- xts(as.numeric(es_value), object$forc_dates)
     } else {
-        cf <- tsconvolve(object, weights = weights, ...)
-        var_value <- future_lapply(1:object$h, function(i) {
-            sapply(1:object$nsim, function(j) {qfft(cf, index = i, sim = j)(alpha)})
-        }, future.packages = "tsmarch", future.seed = TRUE)
-        var_value <- do.call(cbind, var_value)
-        colnames(var_value) <- colnames(a$mu)
-        class(var_value) <- "tsmodel.distribution"
+        es_value <- matrix(as.numeric(es_value), ncol = 1)
     }
-    attr(var_value, "alpha") <- 0.05
-    return(var_value)
+    colnames(es_value) <- "ES"
+    return(es_value)
 }
+
+expected_shortfall_gogarch <- function(object, weights = NULL, alpha = 0.05) {
+    alpha <- alpha[1]
+    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
+    if (is.null(weights)) {
+        warning("\nweights not specified, using equal weights.")
+        weights <- rep(1/object$spec$n_series, object$spec$n_series)
+    }
+    nsim <- object$nsim
+    mu <- object$mu
+    n <- object$h
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    w_mu <- matrix(NA, ncol = n, nrow = nsim)
+    for (i in 1:n) {
+        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+    }
+    es_value <- apply(w_mu, 2, .es_empirical_calculation, alpha)
+    if (any(grepl(pattern = "predict", x = class(object)))) {
+        es_value <- xts(as.numeric(es_value), object$forc_dates)
+    } else {
+        es_value <- matrix(as.numeric(es_value), ncol = 1)
+    }
+    colnames(es_value) <- "ES"
+    return(es_value)
+}
+
 
 #' @rdname expected_shortfall
 #' @export
@@ -2693,42 +2775,88 @@ expected_shortfall <- function(object, ...)
 #' @param weights a vector of weights of length equal to the number of series. If
 #' NULL then an equal weight vector is used.
 #' @param alpha the quantile level for the value at risk.
-#' @param abs_tol the absolute tolerance used in the quadrature integration.
-#' @param ... additional parameters passed to the \code{\link{tsconvolve}} method
-#' for the GO-GARCH model.
-#' @return an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
-#' sim x h of the value at risk.
+#' for the GOGARCH model.
+#' @param ... not used.
+#' @return an xts matrix.
 #' @export
 #' @method expected_shortfall gogarch.predict
 #' @rdname expected_shortfall
-expected_shortfall.gogarch.predict <- function(object, weights = NULL, alpha = 0.05, abs_tol = 1e-6, ...)
+expected_shortfall.gogarch.predict <- function(object, weights = NULL, alpha = 0.05, ...)
 {
-    if (alpha <= 0 | alpha >= 1) stop("\nalpha must be between 0 and 1.")
-    if (is.null(weights)) {
-        warning("\nweights not specified, using equal weights.")
-        weights <- rep(1/object$spec$n_series, object$spec$n_series)
-    }
-    if (object$spec$distribution == "norm") {
-        a <- tsaggregate(object, weights = weights)
-        varv <-  dnorm(qnorm(alpha, 0, 1))/(alpha)
-        es_value <- do.call(cbind, lapply(1:object$h, function(i) {
-            a$mu[,i] - a$sigma[,i] * varv
-        }))
-        colnames(es_value) <- colnames(a$mu)
-        class(es_value) <- "tsmodel.distribution"
-    } else {
-        cf <- tsconvolve(object, weights = weights, ...)
-        es_value <- future_lapply(1:object$h, function(i) {
-            sapply(1:object$nsim, function(j) {
-                qx <- qfft(cf, index = i, sim = j)
-                f <- function(x) qx(x)
-                integrate(f, 0, alpha, abs.tol = abs_tol, stop.on.error = FALSE)$value/(alpha)
-            })
-        }, future.packages = "tsmarch", future.seed = TRUE)
-        es_value <- do.call(cbind, es_value)
-        colnames(es_value) <- colnames(a$mu)
-        class(es_value) <- "tsmodel.distribution"
-    }
-    attr(es_value, "alpha") <- 0.05
+    es_value <- expected_shortfall_gogarch(object, weights = weights, alpha = alpha)
     return(es_value)
 }
+
+#' @export
+#' @method expected_shortfall dcc.predict
+#' @rdname expected_shortfall
+expected_shortfall.dcc.predict <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    es_value <- expected_shortfall_dcc(object, weights = weights, alpha = alpha)
+    return(es_value)
+}
+
+#' @export
+#' @method expected_shortfall cgarch.predict
+#' @rdname expected_shortfall
+expected_shortfall.cgarch.predict <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    es_value <- expected_shortfall_dcc(object, weights = weights, alpha = alpha)
+    return(es_value)
+}
+
+
+#' @export
+#' @method expected_shortfall gogarch.simulate
+#' @rdname expected_shortfall
+expected_shortfall.gogarch.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    es_value <- expected_shortfall_gogarch(object, weights = weights, alpha = alpha)
+    return(es_value)
+}
+
+#' @export
+#' @method expected_shortfall dcc.simulate
+#' @rdname expected_shortfall
+expected_shortfall.dcc.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    es_value <- expected_shortfall_dcc(object, weights = weights, alpha = alpha)
+    return(es_value)
+}
+
+#' @export
+#' @method expected_shortfall cgarch.simulate
+#' @rdname expected_shortfall
+expected_shortfall.cgarch.simulate <- function(object, weights = NULL, alpha = 0.05, ...)
+{
+    es_value <- expected_shortfall_dcc(object, weights = weights, alpha = alpha)
+    return(es_value)
+}
+
+
+# pit ---------------------------------------------------
+
+#' Probability Integral Transform (PIT) for weighted FFT densities
+#'
+#' @param object an object of class \dQuote{gogarch.fft} or \dQuote{gogarch.fftsim}.
+#' @param actual a vector of realized values representing the weighted values of the
+#' series for the period under consideration.
+#' @param ... not used.
+#' @return a matrix.
+#' @export
+#' @method pit gogarch.fft
+#' @rdname pit
+pit.gogarch.fft <- function(object, actual, ...)
+{
+    n <- length(object$y)
+    p <- matrix(0, ncol = 1, nrow = n)
+    if (missing(actual)) stop("\nactual cannot be missing")
+    actual <- as.numeric(actual)
+    if (length(actual) != n) stop(paste0("\nactual must be a vector of length ", n))
+    for (i in 1:n) {
+        pd <- pfft(object, index = i)
+        p[i,1] <- pd(actual[i])
+    }
+    return(p)
+}
+

@@ -105,7 +105,7 @@ test_that("GOGARCH Prediction [cond_mean]",{
 test_that("GOGARCH Simulation [cond_mean]",{
     p <- simulate(mod_full, h = 5, nsim = 50, cond_mean = pred_mean, seed = 100)
     a <- tsaggregate(p, weights = rep(1/6, 6))
-    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2))
+    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2), distribution = TRUE)
     mu <- skew <- kurt <- matrix(0, ncol = 5, nrow = 50)
     for (i in 1:5) {
         for (j in 1:50)
@@ -211,7 +211,7 @@ test_that("GOGARCH Filtering DR [cond_mean]",{
 test_that("GOGARCH Prediction DR [cond_mean]",{
     p <- predict(mod_dr, h = 5, nsim = 50, cond_mean = pred_mean, seed = 100)
     a <- tsaggregate(p, weights = rep(1/6, 6))
-    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2))
+    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2), distribution = TRUE)
     mu <- skew <- kurt <- matrix(0, ncol = 5, nrow = 50)
     for (i in 1:5) {
         for (j in 1:50)
@@ -234,7 +234,7 @@ test_that("GOGARCH Prediction DR [cond_mean]",{
 test_that("GOGARCH Simulation DR [cond_mean]",{
     p <- simulate(mod_dr, h = 5, nsim = 50, cond_mean = pred_mean, seed = 100)
     a <- tsaggregate(p, weights = rep(1/6, 6))
-    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2))
+    cf <- tsconvolve(p, weights = rep(1/6, 6), fft_support = c(-2, 2), distribution = TRUE)
     mu <- skew <- kurt <- matrix(0, ncol = 5, nrow = 50)
     for (i in 1:5) {
         for (j in 1:50)

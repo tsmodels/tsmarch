@@ -1,8 +1,8 @@
-#' GO-GARCH Model specification
+#' GOGARCH Model specification
 #'
 #' @param y an xts matrix of pre-filtered (residuals) stationary data.
-#' @param distribution a choice of the normal, normal inverse gaussian or
-#' generalized hyperbolic distribution (see details).
+#' @param distribution a choice for the component distributions. Valid choices are
+#' normal, normal inverse gaussian or generalized hyperbolic distribution.
 #' @param model the GARCH model to use for each factor.
 #' @param order the GARCH model order.
 #' @param ica the Independent Component Analysis algorithm. Current only the
@@ -288,7 +288,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     S <- matrix(0, nrow = nsim, ncol = n)
     for (i in 1:nsim) {
         sig_mat <- .retain_dimensions_array(sig, i)
-        S[i,] <- .gogarch_covariance_weighted(sig_mat, A, weights)
+        S[i,] <- .gogarch_covariance_weighted(sig_mat^2, A, weights)
     }
     S <- sqrt(S)
     return(S)
@@ -534,3 +534,272 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     box()
     return(invisible(x))
 }
+
+.gogarch_convolution_prediction_d <- function(object,  weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1))
+{
+    elapsed <- Sys.time()
+    n <- object$h
+    nsim <- object$nsim
+    A <- object$ica$A
+    m <- NROW(A)
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    parmatrix <- .get_garch_parameters(object)
+    # transform to alpha, beta, delta, mu, lambda
+    if (object$spec$distribution == "nig") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
+        }))
+        # sort to have alpha beta delta mu
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
+    } else if (object$spec$distribution == "gh") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
+        }))
+        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
+        colnames(pmatrix_std)[5] <- "lambda"
+    } else {
+        stop("\nconvolution not required for normal distribution.")
+    }
+    # no uncertainty for h = 1
+    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma_sim)
+    sig <- array(unlist(sig), dim = c(nsim, n, m))
+    sig <- aperm(sig, perm = c(2,3,1))
+    mu <- object$mu
+    w_mu <- matrix(NA, ncol = n, nrow = nsim)
+    for (i in 1:n) {
+        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+    }
+    Q <- future_lapply(1:nsim, function(s) {
+        w_hat <- matrix(NA, ncol = m, nrow = n)
+        for (i in 1:n) {
+            dS <- diag(sig[i,,s])
+            w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
+        }
+        if (object$spec$distribution == "nig") {
+            w_pars <- array(data = NA, dim = c(m, 4, n))
+            # Scaling of parameters (Blaesild)
+            for (j in 1:m) {
+                tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
+                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
+                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
+            }
+            out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
+        } else if (object$spec$distribution == "gh") {
+            w_pars <- array(data = NA, dim = c(m, 5, n))
+            # Scaling of parameters (Blaesild)
+            for (j in 1:m) {
+                tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
+                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
+                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
+            }
+            out <- .gh_fft_sim(w_pars, fft_support, fft_step, fft_by)
+        }
+    }, future.seed = TRUE)
+    elapsed <- Sys.time() - elapsed
+    L <- list(y = Q, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by, elapsed = elapsed)
+    class(L) <- "gogarch.fftsim"
+    return(L)
+}
+
+
+.gogarch_convolution_prediction <- function(object,  weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1))
+{
+    elapsed <- Sys.time()
+    n <- object$h
+    A <- object$ica$A
+    m <- NROW(A)
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    parmatrix <- .get_garch_parameters(object)
+    # transform to alpha, beta, delta, mu, lambda
+    if (object$spec$distribution == "nig") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
+        }))
+        # sort to have alpha beta delta mu
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
+    } else if (object$spec$distribution == "gh") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
+        }))
+        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
+        colnames(pmatrix_std)[5] <- "lambda"
+    } else {
+        stop("\nconvolution not required for normal distribution.")
+    }
+    # no uncertainty for h = 1
+    sig <- do.call(cbind, lapply(object$univariate, function(x) coredata(x$sigma)))
+    # this is the same as object$cond_mean when present since the distribution has been
+    # recentered around this values.
+    mu <- t(apply(object$mu, 1, rowMeans))
+    w_hat <- matrix(NA, ncol = m, nrow = n)
+    w_mu <- rep(NA, n)
+    for (i in 1:n) {
+        dS <- diag(sig[i, ])
+        w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
+        w_mu[i] <- mu[i, ] %*% w[i, ]
+    }
+    if (object$spec$distribution == "nig") {
+        w_pars <- array(data = NA, dim = c(m, 4, n))
+        # Scaling of parameters (Blaesild)
+        for (j in 1:m) {
+            tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
+            tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
+            w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
+        }
+        out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
+    } else if (object$spec$distribution == "gh") {
+        w_pars <- array(data = NA, dim = c(m, 5, n))
+        # Scaling of parameters (Blaesild)
+        for (j in 1:m) {
+            tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
+            tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
+            w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
+        }
+        out <- .gh_fft(w_pars, fft_support, fft_step, fft_by)
+    }
+    L <- list(y = out, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by)
+    class(L) <- "gogarch.fft"
+    return(L)
+}
+
+.gogarch_convolution_simulation_d <- function(object,  weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1))
+{
+    elapsed <- Sys.time()
+    n <- object$h
+    nsim <- object$nsim
+    A <- object$ica$A
+    m <- NROW(A)
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    parmatrix <- .get_garch_parameters(object)
+    # transform to alpha, beta, delta, mu, lambda
+    if (object$spec$distribution == "nig") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
+        }))
+        # sort to have alpha beta delta mu
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
+    } else if (object$spec$distribution == "gh") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
+        }))
+        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
+        colnames(pmatrix_std)[5] <- "lambda"
+    } else {
+        stop("\nconvolution not required for normal distribution.")
+    }
+    # no uncertainty for h = 1
+    sig <- lapply(1:m, function(i) object$univariate[[i]]$sigma)
+    sig <- array(unlist(sig), dim = c(nsim, n, m))
+    sig <- aperm(sig, perm = c(2,3,1))
+    mu <- object$mu
+    w_mu <- matrix(NA, ncol = n, nrow = nsim)
+    for (i in 1:n) {
+        w_mu[,i] <- t(mu[i,,]) %*% w[i,]
+    }
+    Q <- future_lapply(1:nsim, function(s) {
+        w_hat <- matrix(NA, ncol = m, nrow = n)
+        for (i in 1:n) {
+            dS <- diag(sig[i,,s])
+            w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
+        }
+        if (object$spec$distribution == "nig") {
+            w_pars <- array(data = NA, dim = c(m, 4, n))
+            # Scaling of parameters (Blaesild)
+            for (j in 1:m) {
+                tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
+                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
+                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
+            }
+            out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
+        } else if (object$spec$distribution == "gh") {
+            w_pars <- array(data = NA, dim = c(m, 5, n))
+            # Scaling of parameters (Blaesild)
+            for (j in 1:m) {
+                tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
+                tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
+                w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
+            }
+            out <- .gh_fft_sim(w_pars, fft_support, fft_step, fft_by)
+        }
+    }, future.seed = TRUE)
+    elapsed <- Sys.time() - elapsed
+    L <- list(y = Q, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by, elapsed = elapsed)
+    class(L) <- "gogarch.fftsim"
+    return(L)
+}
+
+
+.gogarch_convolution_simulation <- function(object,  weights = NULL, fft_step = 0.001, fft_by = 0.0001, fft_support = c(-1, 1))
+{
+    elapsed <- Sys.time()
+    n <- object$h
+    A <- object$ica$A
+    m <- NROW(A)
+    w <- .check_weights(weights, m = object$spec$n_series, n)
+    if (NROW(w) == 1) {
+        w <- matrix(w, ncol = NCOL(w), nrow = n, byrow = TRUE)
+    }
+    parmatrix <- .get_garch_parameters(object)
+    # transform to alpha, beta, delta, mu, lambda
+    if (object$spec$distribution == "nig") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            nigtransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i])
+        }))
+        # sort to have alpha beta delta mu
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1)]
+    } else if (object$spec$distribution == "gh") {
+        pmatrix_std <- do.call(rbind, lapply(1:ncol(parmatrix), function(i){
+            ghyptransform(0, 1, skew = parmatrix[1,i], shape = parmatrix[2,i], lambda = parmatrix[3,i])
+        }))
+        pmatrix_std <- cbind(pmatrix_std, parmatrix[3,])
+        pmatrix_std <- pmatrix_std[,c(4,3,2,1,5)]
+        colnames(pmatrix_std)[5] <- "lambda"
+    } else {
+        stop("\nconvolution not required for normal distribution.")
+    }
+    # no uncertainty for h = 1
+    sig <- do.call(cbind, lapply(1:m, function(i) sqrt(colMeans(object$univariate[[i]]$sigma^2))))
+    mu <- t(apply(object$mu, 1, rowMeans))
+    w_hat <- matrix(NA, ncol = m, nrow = n)
+    w_mu <- rep(NA, n)
+    for (i in 1:n) {
+        dS <- diag(sig[i, ])
+        w_hat[i,] <- w[i,] %*% (t(A) %*% dS)
+        w_mu[i] <- mu[i, ] %*% w[i, ]
+    }
+    if (object$spec$distribution == "nig") {
+        w_pars <- array(data = NA, dim = c(m, 4, n))
+        # Scaling of parameters (Blaesild)
+        for (j in 1:m) {
+            tmp <- matrix(pmatrix_std[j,1:4], ncol = 4, nrow = n, byrow = TRUE)
+            tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j])
+            w_pars[j,,] <- as.array(t(tmp), dim = c(1, 4, n))
+        }
+        out <- .nig_fft(w_pars, fft_support, fft_step, fft_by)
+    } else if (object$spec$distribution == "gh") {
+        w_pars <- array(data = NA, dim = c(m, 5, n))
+        # Scaling of parameters (Blaesild)
+        for (j in 1:m) {
+            tmp <- matrix(pmatrix_std[j,1:5], ncol = 5, nrow = n, byrow = TRUE)
+            tmp <- tmp * cbind(1/abs(w_hat[1:n, j]), 1/w_hat[1:n,j], abs(w_hat[1:n,j]), w_hat[1:n,j], rep(1, n))
+            w_pars[j,,] <- as.array(t(tmp), dim = c(1, 5, n))
+        }
+        out <- .gh_fft(w_pars, fft_support, fft_step, fft_by)
+    }
+    L <- list(y = out, distribution = object$spec$distribution, mu = w_mu, fft_step = fft_step, fft_by = fft_by)
+    class(L) <- "gogarch.fft"
+    return(L)
+}
+

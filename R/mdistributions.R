@@ -186,9 +186,11 @@ rcopula_gauss <- function(n, u, s)
 }
 
 .icdf_fun <- function(x, y, y_left, y_right){
+    y_left <- y_left[1]
+    y_right <- y_right[1]
     yl <- if (is.finite(y_left)) y_left  else y[1]
     yr <- if (is.finite(y_right)) y_right else y[length(y)]
-    f1 <- approxfun(x = x, y = y, method = "linear", yleft = y_left, yright = y_right)
+    f1 <- approxfun(x = x, y = y, method = "linear", yleft = yl, yright = yr, ties = "ordered")
     f <- function(x) {
         y1 <- f1(x)
         y1[.is_equal(x,0)] <- y_left
@@ -205,7 +207,7 @@ rcopula_gauss <- function(n, u, s)
     if (is.null(h)) h <- 1
     dx1 <- dx / h
     ## density
-    df1 <- approxfun(x = x + mu, y = dx1, yleft = 0, yright = 0)
+    df1 <- approxfun(x = x + mu, y = dx1, yleft = 0, yright = 0, ties = "ordered")
     if (standM == "sum") {
         stand <- sum(dx)
     } else {
@@ -240,19 +242,20 @@ rcopula_gauss <- function(n, u, s)
     x_lower <- x_lower[seq(l) %% 2 == 1]
     x_upper <- x_upper[seq(l) %% 2 == 1]
     p_lower <- .csimpsum(dx)
-    nm <- max(p_lower)
-    p1_lower <- approxfun(x = x_lower + mu, y = p_lower, yleft = 0, yright = nm)
-    nm <- p1_lower(max(x))
+    nm_lower <- max(p_lower + mu)
+    p1_lower <- approxfun(x = x_lower + mu, y = p_lower, yleft = 0, yright = nm_lower, ties = "ordered")
+    nm_upper <- p1_lower(max(x + mu))
     p_upper <- rev(.csimpsum(rev(dx)))
     ## continuity correction by h/2
-    p1_upper <- approxfun(x = x_upper + mu, y = p_upper, yright = 0, yleft = nm)
+    p1_upper <- approxfun(x = x_upper + mu, y = p_upper, yright = 0, yleft = nm_upper, ties = "ordered")
     pfun <- function(q, lower_tail = TRUE, log_p = FALSE){
         if (lower_tail) {
             p0 <- p1_lower(q)
+            p0 <- if (log_p) log(p0) - log(nm_lower) else p0/nm_lower
         } else {
             p0 <- p1_upper(q)
+            p0 <- if (log_p) log(p0) - log(nm_upper) else p0/nm_upper
         }
-        p0 <- if (log_p) log(p0) - log(nm) else p0/nm
         return(p0)
     }
     return(pfun)
@@ -264,21 +267,17 @@ rcopula_gauss <- function(n, u, s)
     cdf_f <- .create_cdf(x, dx, h, mu = mu)
     y_left <- min(x + mu)
     y_right <- max(x + mu)
-    #px_lower <- cdf_f(x)
-    #px_upper <- cdf_f(x, lower_tail = FALSE)
-    y_left <- -Inf
-    y_right <- Inf
-    px_lower <- cdf_f(x + 0.5 * h)
-    px_upper <- cdf_f(x + 0.5 * h, lower_tail = FALSE)
-    ix <- .is_equal_01(px_lower)
-    xx_lower <- px_lower[!ix]
-    yy_lower <- x[!ix]
+    px_lower <- cdf_f(x)
+    px_upper <- cdf_f(x, lower_tail = FALSE)
+    ix_lower <- .is_equal_01(px_lower)
+    xx_lower <- px_lower[!ix_lower]
+    yy_lower <- x[!ix_lower]
     q_lower <- .icdf_fun(x = xx_lower, y = yy_lower, y_left = y_left, y_right = y_right)
     x_rev <- rev(x)
     px_upper <- rev(px_upper)
-    ix <- .is_equal_01(px_upper)
-    xx_upper <- px_upper[!ix]
-    yy_upper <- x_rev[!ix]
+    ix_upper <- .is_equal_01(px_upper)
+    xx_upper <- px_upper[!ix_upper]
+    yy_upper <- x_rev[!ix_upper]
     q_upper <- .icdf_fun(x = xx_upper, y = yy_upper, y_left = y_right, y_right = y_left)
     p <- NULL
     qfun <- function(p, lower_tail = TRUE, log_p = FALSE) {

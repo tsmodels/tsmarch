@@ -30,7 +30,7 @@ test_that("GOGARCH Prediction Convolution/Geometric Moments [h=1]",{
     h <- 1
     p <- predict(global_gogarch_mod, h = h, nsim = nsim, seed = 100)
     geometric_pmoments <- tsaggregate(p, weights = rep(1/series, series))
-    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1))
+    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1), distribution = TRUE)
     kurtosis_moment <- skew_moment <- matrix(0, ncol = h, nrow = nsim)
     for (i in 1:h) {
         for (j in 1:nsim) {
@@ -57,7 +57,7 @@ test_that("GOGARCH Prediction Convolution/Geometric Moments [h>1]",{
     h <- 3
     p <- predict(global_gogarch_mod, h = h, nsim = nsim, seed = 100)
     geometric_pmoments <- tsaggregate(p, weights = rep(1/series, series))
-    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1))
+    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1), distribution = TRUE)
     kurtosis_moment <- skew_moment <- matrix(0, ncol = h, nrow = nsim)
     for (i in 1:h) {
         for (j in 1:nsim) {
@@ -84,7 +84,7 @@ test_that("GOGARCH Simulation Convolution/Geometric Moments [h=1]",{
     h <- 1
     p <- simulate(global_gogarch_mod, h = h, nsim = nsim, seed = 100)
     geometric_pmoments <- tsaggregate(p, weights = rep(1/series, series))
-    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1))
+    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1), distribution = TRUE)
     kurtosis_moment <- skew_moment <- matrix(0, ncol = h, nrow = nsim)
     for (i in 1:h) {
         for (j in 1:nsim) {
@@ -110,7 +110,7 @@ test_that("GOGARCH Simulation Convolution/Geometric Moments [h>1]",{
     h <- 3
     p <- simulate(global_gogarch_mod, h = h, nsim = nsim, seed = 100)
     geometric_pmoments <- tsaggregate(p, weights = rep(1/series, series))
-    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1))
+    cf <- tsconvolve(p, weights = rep(1/series, series), fft_support = c(-1, 1), distribution = TRUE)
     kurtosis_moment <- skew_moment <- matrix(0, ncol = h, nrow = nsim)
     for (i in 1:h) {
         for (j in 1:nsim) {

@@ -1,7 +1,7 @@
 Package: tsmarch
 Type: Package
 Title: Multivariate ARCH Models
-Description: Feasible large scale multivariate Autoregressive Conditional Heteroscedasticity (ARCH) models including Dynamic Conditional Correlation (DCC), Scalar BEKK (Indirect DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) <doi:10.1016/bs.host.2019.01.001>.
+Description: Feasible Multivariate Autoregressive Conditional Heteroscedasticity (ARCH) models including Dynamic Conditional Correlation (DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) <doi:10.1016/bs.host.2019.01.001>.
 Version: 1.0.0
 Authors@R: c(person("Alexios", "Galanos", role = c("aut", "cre","cph"), email = "alexios@4dscape.com", comment = c(ORCID = "0009-0000-9308-0457")))
 Maintainer: Alexios Galanos <alexios@4dscape.com>
@@ -18,6 +18,7 @@ RdMacros: Rdpack
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    tstests
 VignetteBuilder: knitr
 Config/testthat/edition: 3

@@ -30,7 +30,7 @@
 
 \item{...}{additional parameters passed to the method.}
 
-\item{factor}{the pair of factors for which to generate the news impact surface for the GO-GARCH model.}
+\item{factor}{the pair of factors for which to generate the news impact surface for the GOGARCH model.}
 }
 \value{
 An object of class \dQuote{tsmarch.newsimpact} which has a plot method.

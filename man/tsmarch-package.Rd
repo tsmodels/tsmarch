@@ -6,7 +6,7 @@
 \alias{tsmarch-package}
 \title{tsmarch: Multivariate ARCH Models}
 \description{
-Feasible large scale multivariate Autoregressive Conditional Heteroscedasticity (ARCH) models including Dynamic Conditional Correlation (DCC), Scalar BEKK (Indirect DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) \doi{10.1016/bs.host.2019.01.001}.
+Feasible Multivariate Autoregressive Conditional Heteroscedasticity (ARCH) models including Dynamic Conditional Correlation (DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) \doi{10.1016/bs.host.2019.01.001}.
 }
 \author{
 \strong{Maintainer}: Alexios Galanos \email{alexios@4dscape.com} (\href{https://orcid.org/0009-0000-9308-0457}{ORCID}) [copyright holder]

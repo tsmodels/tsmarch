@@ -2,7 +2,7 @@
 % Please edit documentation in R/gogarch.R
 \name{gogarch_modelspec}
 \alias{gogarch_modelspec}
-\title{GO-GARCH Model specification}
+\title{GOGARCH Model specification}
 \usage{
 gogarch_modelspec(
   y,
@@ -20,8 +20,8 @@ gogarch_modelspec(
 \arguments{
 \item{y}{an xts matrix of pre-filtered (residuals) stationary data.}
 
-\item{distribution}{a choice of the normal, normal inverse gaussian or
-generalized hyperbolic distribution (see details).}
+\item{distribution}{a choice for the component distributions. Valid choices are
+normal, normal inverse gaussian or generalized hyperbolic distribution.}
 
 \item{model}{the GARCH model to use for each factor.}
 
@@ -47,5 +47,5 @@ the shape parameter (zeta).}
 an object of class \dQuote{gogarch.spec}.
 }
 \description{
-GO-GARCH Model specification
+GOGARCH Model specification
 }

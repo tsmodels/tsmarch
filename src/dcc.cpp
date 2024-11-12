@@ -4,39 +4,45 @@
 using namespace Rcpp;
 
 // [[Rcpp::export(.dcc_constant_normal)]]
-Rcpp::List dcc_constant_normal(const arma::mat Z)
+Rcpp::List dcc_constant_normal(const arma::mat Z, const arma::mat S)
 {
     int timesteps = Z.n_rows;
     int m = Z.n_cols;
     // not used
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     Rcpp::String method = "pearson";
     arma::mat R = make_correlation(Z, method);
     bool ispd = is_psd(R);
     if (!ispd) {
         R = make_psd(R);
     }
-    arma::mat identity_matrix = arma::eye(m, m);
-    arma::mat r_inverse = arma::inv_sympd(R) - identity_matrix;
+    arma::mat r_inverse = arma::inv_sympd(R);
     double part1 = arma::log_det_sympd(R);
-    arma::vec llhvec = arma::zeros(timesteps);
+    double const_part = m * log(2 * M_PI);
+    double part2 = 0.0;
+    double garchll = 0.0;
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
+
     for (int i = 0;i<timesteps;i++) {
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) += part1;
-        llhvec(i) *= 0.5;
+        part2 = arma::as_scalar(Z.row(i) * Z.row(i).t());
+        garchll = 0.5 * (const_part + 2.0 * log(arma::prod(S.row(i))) + part2);
+        dccll_vec(i) =  0.5 * (arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t())) + part1 - part2);
+        ll_vec(i) = dccll_vec(i) + garchll;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R ,  _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("R") = R , _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
 // [[Rcpp::export(.dcc_constant_student)]]
-Rcpp::List dcc_constant_student(const arma::mat Z, const double shape)
+Rcpp::List dcc_constant_student(const arma::mat Z, const arma::mat S, const double shape)
 {
     int timesteps = Z.n_rows;
     int m = Z.n_cols;
     // not used
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     Rcpp::String method = "kendall";
     arma::mat R = make_correlation(Z, method);
     R = transform_correlation(R, method);
@@ -44,25 +50,29 @@ Rcpp::List dcc_constant_student(const arma::mat Z, const double shape)
     if (!ispd) {
         R = make_psd(R);
     }
-    double const_term = lgamma(0.5 * (m + shape)) - lgamma(0.5 * shape) - 0.5 * m * log(M_PI * (shape - 2.0));
+    double const_term = -1.0 * lgamma(0.5 * (m + shape)) + lgamma(0.5 * shape) + 0.5 * m * log(M_PI * (shape - 2.0));
     arma::mat r_inverse = arma::inv_sympd(R);
     double part1 = arma::log_det_sympd(R);
     double part2 = 0.0;
-    arma::vec llhvec = arma::zeros(timesteps);
+    double part3 = 0.0;
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
+
     for (int i = 0;i<timesteps;i++) {
         part2 = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
-        llhvec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
-        llhvec(i) *= -1.0;
+        part3 = log(arma::prod(S.row(i)));
+        dccll_vec(i) = const_term + 0.5 * part1 + 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
+        ll_vec(i) = dccll_vec(i) + part3;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R ,  _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("R") = R ,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
 // [[Rcpp::export(.dcc_dynamic_normal)]]
 Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, const arma::vec beta,
-                                 const arma::mat z, Rcpp::IntegerVector dccorder)
+                                 const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder)
 {
     const int alpha_order = dccorder[0];
     const int gamma_order = dccorder[1];
@@ -73,7 +83,7 @@ Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, cons
     double sum_gamma = arma::accu(gamma);
     double sum_beta = arma::accu(beta);
     const arma::mat zero_matrix = arma::zeros(maxpq, m);
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     arma::mat Qbar = arma::cov(z);
     arma::mat AsyZinit = arma::zeros(z.n_rows, m);
     arma::mat Nbar = arma::zeros(m, m);
@@ -83,8 +93,10 @@ Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, cons
     }
     const int timesteps = z.n_rows + maxpq;
     const arma::mat Z = arma::join_cols(zero_matrix, z);
+    const arma::mat S = arma::join_cols(zero_matrix, s);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -96,6 +108,12 @@ Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, cons
         C.slice(i) = Qbar;
     }
     arma::mat Q = arma::zeros(m,m);
+
+    double const_part = m * log(2 * M_PI);
+    double part1 = 0.0;
+    double part2 = 0.0;
+    double garch_ll = 0.0;
+
     for (i = maxpq; i < timesteps; ++i) {
         Q = Omega;
         if (alpha_order > 0) {
@@ -120,18 +138,21 @@ Rcpp::List dcc_dynamic_normal(const arma::vec alpha, const arma::vec gamma, cons
         R.slice(i) = Rt;
         arma::mat id_matrix = arma::eye(m, m);
         arma::mat Rinv = arma::inv(Rt);
-        double temp = arma::as_scalar(Z.row(i) * ((Rinv - id_matrix) * Z.row(i).t()));
-        double llhtemp = 0.5 * arma::as_scalar(log(arma::det(Rt)) + temp);
-        llhvec(i) = llhtemp;
+        part1 = arma::log_det_sympd(Rt);
+        part2 = arma::as_scalar(Z.row(i) * Z.row(i).t());
+        garch_ll = 0.5 * (const_part + 2.0 * log(arma::prod(S.row(i))) + part2);
+        dccll_vec(i) =  0.5 * (arma::as_scalar(Z.row(i) * (Rinv  * Z.row(i).t())) + part1 - part2);
+        ll_vec(i) = dccll_vec(i) + garch_ll;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec, _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
 
 // [[Rcpp::export(.dcc_dynamic_student)]]
-Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, Rcpp::IntegerVector dccorder)
+Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, const arma::vec beta, double shape, const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder)
 {
     const int alpha_order = dccorder[0];
     const int gamma_order = dccorder[1];
@@ -142,7 +163,7 @@ Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, con
     double sum_gamma = arma::accu(gamma);
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     arma::mat Qbar = arma::cov(z);
     arma::mat AsyZinit = arma::zeros(z.n_rows, m);
     arma::mat Nbar = arma::zeros(m, m);
@@ -152,15 +173,20 @@ Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, con
     }
     const int timesteps = z.n_rows + maxpq;
     arma::mat Z = arma::join_cols(zero_matrix, z);
+    arma::mat S = arma::join_cols(zero_matrix, s);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
     }
     arma::cube C(m,m,timesteps);
     arma::cube R(m,m,timesteps);
-    double temp0 = lgamma(0.5 * (shape + m)) - lgamma(0.5 * shape) - 0.5 * m * log(M_PI * (shape - 2.0));
+    double const_term = -1.0 * lgamma(0.5 * (m + shape)) + lgamma(0.5 * shape) + 0.5 * m * log(M_PI * (shape - 2.0));
+    double part1 = 0.0;
+    double part2 = 0.0;
+    double part3 = 0.0;
     int i,j;
     for(i = 0;i<maxpq;i++){
         C.slice(i) = Qbar;
@@ -188,12 +214,16 @@ Rcpp::List dcc_dynamic_student(const arma::vec alpha, const arma::vec gamma, con
         arma::mat tempy = tempx * tempx.t();
         arma::mat Rt = Q/tempy;
         R.slice(i) = Rt;
-        double temp2 = arma::as_scalar(Z.row(i) * (arma::inv(Rt) * Z.row(i).t()));
-        double llhtemp = arma::as_scalar(temp0 - 0.5 * log(arma::det(Rt)) - 0.5 * (shape + m) * log(1.0 + (1.0 / (shape - 2.0)) * temp2));
-        llhvec(i) = -1.0 * llhtemp;
+        arma::mat Rinv = arma::inv(Rt);
+        part1 = arma::log_det_sympd(Rt);
+        part2 = arma::as_scalar(Z.row(i) * (Rinv  * Z.row(i).t()));
+        part3 = log(arma::prod(S.row(i)));
+        dccll_vec(i) = const_term + 0.5 * part1 + 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
+        ll_vec(i) = dccll_vec(i) + part3;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
@@ -216,64 +246,76 @@ double adcc_constraint(const arma::vec alpha, const arma::vec gamma, const arma:
 
 
 // [[Rcpp::export(.dcc_constant_normal_filter)]]
-Rcpp::List dcc_constant_normal_filter(const arma::mat z, const int n_update)
+Rcpp::List dcc_constant_normal_filter(const arma::mat Z, const arma::mat S, const int n_update)
 {
-    int timesteps = z.n_rows;
-    int m = z.n_cols;
+    int timesteps = Z.n_rows;
+    int m = Z.n_cols;
     // not used
-    Rcpp::String distribution = "gaussian";
+    Rcpp::String distribution = "mvn";
     Rcpp::String method = "pearson";
-    arma::mat R = make_correlation(z.head_rows(n_update), method);
+    arma::mat R = make_correlation(Z.head_rows(n_update), method);
     bool ispd = is_psd(R);
     if (!ispd) {
         R = make_psd(R);
     }
-    arma::mat identity_matrix = arma::eye(m, m);
-    arma::mat r_inverse = arma::inv_sympd(R) - identity_matrix;
+    arma::mat r_inverse = arma::inv_sympd(R);
     double part1 = arma::log_det_sympd(R);
-    arma::vec llhvec = arma::zeros(timesteps);
+    double const_part = m * log(2 * M_PI);
+    double part2 = 0.0;
+    double garchll = 0.0;
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
+
     for (int i = 0;i<timesteps;i++) {
-        llhvec(i) = arma::as_scalar(z.row(i) * (r_inverse  * z.row(i).t()));
-        llhvec(i) += part1;
-        llhvec(i) *= 0.5;
+        part2 = arma::as_scalar(Z.row(i) * Z.row(i).t());
+        garchll = 0.5 * (const_part + 2.0 * log(arma::prod(S.row(i))) + part2);
+        dccll_vec(i) =  0.5 * (arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t())) + part1 - part2);
+        ll_vec(i) = dccll_vec(i) + garchll;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("R") = R ,   _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
 // [[Rcpp::export(.dcc_constant_student_filter)]]
-Rcpp::List dcc_constant_student_filter(double shape, const arma::mat z, const int n_update)
+Rcpp::List dcc_constant_student_filter(double shape, const arma::mat Z, arma::mat S, const int n_update)
 {
-    int timesteps = z.n_rows;
-    int m = z.n_cols;
-    Rcpp::String distribution = "student";
+    int timesteps = Z.n_rows;
+    int m = Z.n_cols;
+    // not used
+    Rcpp::String distribution = "mvt";
     Rcpp::String method = "kendall";
-    arma::mat R = make_correlation(z.head_rows(n_update), method);
+    arma::mat R = make_correlation(Z.head_rows(n_update), method);
+    R = transform_correlation(R, method);
     bool ispd = is_psd(R);
     if (!ispd) {
         R = make_psd(R);
     }
-    R = transform_correlation(R, method);
     double const_term = lgamma(0.5 * (m + shape)) - lgamma(0.5 * shape) - 0.5 * m * log(M_PI * (shape - 2.0));
     arma::mat r_inverse = arma::inv_sympd(R);
     double part1 = arma::log_det_sympd(R);
     double part2 = 0.0;
-    arma::vec llhvec = arma::zeros(timesteps);
+    double part3 = 0.0;
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
+
     for (int i = 0;i<timesteps;i++) {
-        part2 = arma::as_scalar(z.row(i) * (r_inverse  * z.row(i).t()));
-        llhvec(i) = arma::as_scalar(z.row(i) * (r_inverse  * z.row(i).t()));
-        llhvec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
-        llhvec(i) *= -1.0;
+        part2 = arma::as_scalar(Z.row(i) * (r_inverse  * Z.row(i).t()));
+        part3 = log(arma::prod(S.row(i)));
+        dccll_vec(i) = const_term - 0.5 * part1 - 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
+        ll_vec(i) = dccll_vec(i) - part3;
+        ll_vec(i) *= -1.0;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("R") = R , _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = -1.0 * arma::accu(dccll_vec);
+    List L = List::create(Named("R") = R ,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
 // [[Rcpp::export(.dcc_dynamic_normal_filter)]]
 Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamma, const arma::vec beta,
-                                        const arma::mat z, Rcpp::IntegerVector dccorder, const int n_update)
+                                     const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder, const int n_update)
 {
     const int alpha_order = dccorder[0];
     const int gamma_order = dccorder[1];
@@ -293,8 +335,10 @@ Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamm
     }
     const int timesteps = z.n_rows + maxpq;
     arma::mat Z = arma::join_cols(zero_matrix, z);
+    const arma::mat S = arma::join_cols(zero_matrix, s);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
@@ -306,6 +350,12 @@ Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamm
         C.slice(i) = Qbar;
     }
     arma::mat Q = arma::zeros(m,m);
+
+    double const_part = m * log(2 * M_PI);
+    double part1 = 0.0;
+    double part2 = 0.0;
+    double garch_ll = 0.0;
+
     for (i = maxpq; i < timesteps; ++i) {
         Q = Omega;
         if (alpha_order > 0) {
@@ -330,12 +380,15 @@ Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamm
         R.slice(i) = Rt;
         arma::mat id_matrix = arma::eye(m, m);
         arma::mat Rinv = arma::inv(Rt);
-        double temp = arma::as_scalar(Z.row(i) * ((Rinv - id_matrix) * Z.row(i).t()));
-        double llhtemp = 0.5 * arma::as_scalar(log(arma::det(Rt)) + temp);
-        llhvec(i) = llhtemp;
+        part1 = arma::log_det_sympd(Rt);
+        part2 = arma::as_scalar(Z.row(i) * Z.row(i).t());
+        garch_ll = 0.5 * (const_part + 2.0 * log(arma::prod(S.row(i))) + part2);
+        dccll_vec(i) =  0.5 * (arma::as_scalar(Z.row(i) * (Rinv  * Z.row(i).t())) + part1 - part2);
+        ll_vec(i) = dccll_vec(i) + garch_ll;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C,  _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec, _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
@@ -343,7 +396,7 @@ Rcpp::List dcc_dynamic_normal_filter(const arma::vec alpha, const arma::vec gamm
 // [[Rcpp::export(.dcc_dynamic_student_filter)]]
 Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gamma,
                                          const arma::vec beta, double shape,
-                                         const arma::mat z, Rcpp::IntegerVector dccorder,
+                                         const arma::mat z, const arma::mat s, Rcpp::IntegerVector dccorder,
                                          const int n_update)
 {
     const int alpha_order = dccorder[0];
@@ -355,7 +408,7 @@ Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gam
     double sum_gamma = arma::accu(gamma);
     double sum_beta = arma::accu(beta);
     arma::mat zero_matrix = arma::zeros(maxpq, m);
-    Rcpp::String distribution = "student";
+    Rcpp::String distribution = "mvt";
     arma::mat Qbar = arma::cov(z.head_rows(n_update));
     arma::mat AsyZinit = arma::zeros(z.n_rows, m);
     arma::mat Nbar = arma::zeros(m, m);
@@ -365,15 +418,20 @@ Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gam
     }
     const int timesteps = z.n_rows + maxpq;
     arma::mat Z = arma::join_cols(zero_matrix, z);
+    arma::mat S = arma::join_cols(zero_matrix, s);
     arma::mat AsyZ = arma::join_cols(zero_matrix, AsyZinit);
-    arma::vec llhvec = arma::zeros(timesteps);
+    arma::vec ll_vec = arma::zeros(timesteps);
+    arma::vec dccll_vec = arma::zeros(timesteps);
     arma::mat Omega = Qbar * (1.0 - sum_alpha - sum_beta);
     if (gamma_order > 0) {
         Omega = Omega - sum_gamma * Nbar;
     }
     arma::cube C(m,m,timesteps);
     arma::cube R(m,m,timesteps);
-    double temp0 = lgamma(0.5 * (shape + m)) - lgamma(0.5 * shape) - 0.5 * m * log(M_PI * (shape - 2.0));
+    double const_term = -1.0 * lgamma(0.5 * (m + shape)) + lgamma(0.5 * shape) + 0.5 * m * log(M_PI * (shape - 2.0));
+    double part1 = 0.0;
+    double part2 = 0.0;
+    double part3 = 0.0;
     int i,j;
     for(i = 0;i<maxpq;i++){
         C.slice(i) = Qbar;
@@ -401,12 +459,16 @@ Rcpp::List dcc_dynamic_student_filter(const arma::vec alpha, const arma::vec gam
         arma::mat tempy = tempx * tempx.t();
         arma::mat Rt = Q/tempy;
         R.slice(i) = Rt;
-        double temp2 = arma::as_scalar(Z.row(i) * (arma::inv(Rt) * Z.row(i).t()));
-        double llhtemp = arma::as_scalar(temp0 - 0.5 * log(arma::det(Rt)) - 0.5 * (shape + m) * log(1.0 + (1.0 / (shape - 2.0)) * temp2));
-        llhvec(i) = -1.0 * llhtemp;
+        arma::mat Rinv = arma::inv(Rt);
+        part1 = arma::log_det_sympd(Rt);
+        part2 = arma::as_scalar(Z.row(i) * (Rinv  * Z.row(i).t()));
+        part3 = log(arma::prod(S.row(i)));
+        dccll_vec(i) = const_term + 0.5 * part1 + 0.5 * (shape + m) * log(1.0 + (1.0/(shape - 2.0)) * part2);
+        ll_vec(i) = dccll_vec(i) + part3;
     }
-    double nll = arma::accu(llhvec);
-    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C, _["llhvec"] = llhvec, _["nll"] = nll);
+    double nll = arma::accu(ll_vec);
+    double dccnll = arma::accu(dccll_vec);
+    List L = List::create(Named("Qbar") = Qbar, _("Nbar") = Nbar, _("R") = R , _("Q") = C,  _["dccll_vec"] = dccll_vec, _["ll_vec"] = ll_vec,  _["dcc_nll"] = dccnll, _["nll"] = nll);
     return L;
 }
 
@@ -473,12 +535,12 @@ Rcpp::List dcc_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
         Rt = arma::symmatu(Rt);
         R.slice(i) = Rt;
         arma::rowvec ztmp = std_noise.row(i);
-        if (distribution == "student") {
+        if (distribution == "mvt") {
             Z.row(i) = rmvt(Rt, ztmp, shape, (double) chisqrv(i));
-        } else if (distribution == "gaussian") {
+        } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(Rt, ztmp);
         } else {
-            Rf_error("cgarchsim: unknown distribution");
+            Rf_error("dccsim: unknown distribution");
         }
         AsyZ.row(i) = matrix_sign(Z.row(i)) % Z.row(i);
     }
@@ -500,9 +562,9 @@ Rcpp::List dcc_constant_simulate(const double shape, const arma::mat R, const ar
     arma::vec chisqrv = as<arma::vec>(wrap(Rcpp::rchisq(timesteps, shape)));
     for(int i = 0;i<timesteps;++i){
         arma::rowvec ztmp = std_noise.row(i);
-        if (distribution == "student") {
+        if (distribution == "mvt") {
             Z.row(i) = rmvt(R, ztmp, shape, (double) chisqrv(i));
-        } else if (distribution == "gaussian") {
+        } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(R, ztmp);
         } else {
             Rf_error("cgarchsim: unknown distribution");

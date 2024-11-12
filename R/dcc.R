@@ -1,166 +1,5 @@
 # !diagnostics suppress=data.table,copy,as.data.table,setnames
 
-# dcc c++ values ---------------------------------------------------
-
-.dcc_dynamic_values <- function(pars, spec, type = "nll", return_all = FALSE)
-{
-    estimate <- group <- NULL
-    type <- match.arg(type[1], c("nll","llhvec","R","Qbar","Nbar","Q"))
-    pmatrix <- copy(spec$parmatrix)
-    pmatrix[estimate == 1]$value <- pars
-    dist <- spec$distribution
-    dccorder <- spec$dynamics$order
-    if (spec$dynamics$model == "adcc") {
-        dccorder <- c(dccorder[1], dccorder[1], dccorder[2])
-    } else {
-        dccorder <- c(dccorder[1], 0, dccorder[2])
-    }
-    z <- residuals(spec$univariate, standardize = TRUE)
-    if (return_all) {
-        out <- switch(dist,
-                      "gaussian" = .dcc_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
-                                                          gamma = pmatrix[group == "gamma"]$value,
-                                                          beta = pmatrix[group == "beta"]$value,
-                                                          z = z,
-                                                          dccorder = dccorder),
-                      "student" = .dcc_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
-                                                          gamma = pmatrix[group == "gamma"]$value,
-                                                          beta = pmatrix[group == "beta"]$value,
-                                                          shape = pmatrix[group == "shape"]$value,
-                                                          z = z,
-                                                          dccorder = dccorder)
-        )
-    } else {
-        out <- switch(dist,
-                      "gaussian" = .dcc_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
-                                                          gamma = pmatrix[group == "gamma"]$value,
-                                                          beta = pmatrix[group == "beta"]$value,
-                                                          z = z,
-                                                          dccorder = dccorder)[[type]],
-                      "student" = .dcc_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
-                                                          gamma = pmatrix[group == "gamma"]$value,
-                                                          beta = pmatrix[group == "beta"]$value,
-                                                          shape = pmatrix[group == "shape"]$value,
-                                                          z = z,
-                                                          dccorder = dccorder)[[type]]
-        )
-    }
-    return(out)
-}
-
-.dcc_constant_values <- function(pars, spec, type = "nll", return_all = FALSE)
-{
-    estimate <- group <- NULL
-    pmatrix <- copy(spec$parmatrix)
-    if (!is.null(pars)) {
-        pmatrix[estimate == 1]$value <- pars
-    }
-    dist <- spec$distribution
-    z <- residuals(spec$univariate, standardize = TRUE)
-    if (return_all) {
-        out <- switch(dist,
-                      "gaussian" = .dcc_constant_normal(Z = z),
-                      "student" = .dcc_constant_student(Z = z, shape = pmatrix[group == "shape"]$value)
-        )
-    } else {
-        out <- switch(dist,
-                      "gaussian" = .dcc_constant_normal(Z = z)[[type]],
-                      "student" = .dcc_constant_student(Z = z, shape = pmatrix[group == "shape"]$value)[[type]]
-        )
-    }
-    return(out)
-}
-
-# dcc c++ fun ---------------------------------------------------
-.dcc_dynamic_fun <- function(spec, type = "nll")
-{
-    estimate <- group <- NULL
-    if (spec$distribution == "gaussian") {
-        fun <- function(x, arglist)
-        {
-            arglist$parmatrix[estimate == 1]$value <- x
-            .dcc_dynamic_normal(alpha = arglist$parmatrix[group == "alpha"]$value,
-                                gamma = arglist$parmatrix[group == "gamma"]$value,
-                                beta = arglist$parmatrix[group == "beta"]$value,
-                                z = arglist$z, dccorder = arglist$dccorder)[[type]]
-        }
-    } else {
-        fun <- function(x, arglist)
-        {
-            arglist$parmatrix[estimate == 1]$value <- x
-            .dcc_dynamic_student(alpha = arglist$parmatrix[group == "alpha"]$value,
-                                 gamma = arglist$parmatrix[group == "gamma"]$value,
-                                 beta = arglist$parmatrix[group == "beta"]$value,
-                                 shape = arglist$parmatrix[group == "shape"]$value,
-                                 z = arglist$z, dccorder = arglist$dccorder)[[type]]
-        }
-    }
-    if (spec$dynamics$model == "adcc") {
-        cons <- function(x, arglist) {
-            arglist$parmatrix[estimate == 1]$value <- x
-            .adcc_constraint(alpha = arglist$parmatrix[group == "alpha"]$value,
-                                    gamma = arglist$parmatrix[group == "gamma"]$value,
-                                    beta = arglist$parmatrix[group == "beta"]$value,
-                                    shape = arglist$parmatrix[group == "shape"]$value,
-                                    z = arglist$z,
-                                    dccorder = arglist$dccorder) - 0.999
-        }
-        jac <- function(x, arglist) {
-            jacobian(func = arglist$inequality_cons, x = x, arglist = arglist)
-        }
-    } else {
-        cons <- function(x, arglist) {
-            arglist$parmatrix[estimate == 1]$value <- x
-            sum(arglist$parmatrix[group == "alpha"]$value) + sum(arglist$parmatrix[group == "beta"]$value) - 0.999
-        }
-
-        j <- matrix(0, ncol = length(spec$parmatrix[estimate == 1]$value), nrow = 1)
-        cnames <- spec$parmatrix[estimate == 1]$group
-        if (any(cnames %in% "alpha")) {
-            j[which(cnames %in% "alpha")] <- 1
-        }
-        if (any(cnames %in% "beta")) {
-            j[which(cnames %in% "beta")] <- 1
-        }
-        jac <- function(x, arglist) {
-            return(j)
-        }
-    }
-    grad_fun <- function(x, arglist) {
-        if (arglist$inequality_cons(x, arglist) >= 0) {
-            return(matrix(1e6, ncol = length(x), nrow = 1))
-        } else {
-            return(grad(func = arglist$fun, x = x, arglist = arglist))
-        }
-    }
-    hess_fun <- function(x, arglist) {
-        nderiv_hessian(func = arglist$fun, x = x, lower = arglist$lower, upper = arglist$upper, arglist = arglist)
-    }
-    return(list(fun = fun, grad = grad_fun, hess = hess_fun, inequality_cons = cons, inequality_jac = jac))
-}
-
-
-.dcc_constant_fun <- function(spec, type = "nll")
-{
-    estimate <- group <- NULL
-    if (spec$distribution == "student") {
-        fun <- function(x, arglist)
-        {
-            arglist$parmatrix[estimate == 1]$value <- x
-            .dcc_constant_student(shape = arglist$parmatrix[group == "shape"]$value, Z = arglist$z)[[type]]
-        }
-    } else {
-        stop("\ndistrbution not recognized.")
-    }
-    grad_fun <- function(x, arglist) {
-        return(grad(func = arglist$fun, x = x, arglist = arglist))
-    }
-    hess_fun <- function(x, arglist) {
-        nderiv_hessian(func = arglist$fun, x = x, lower = arglist$lower, upper = arglist$upper, arglist = arglist)
-    }
-    return(list(fun = fun, grad = grad_fun, hess = hess_fun, inequality_cons = NULL, inequality_jac = NULL))
-}
-
 # dcc loglik ---------------------------------------------------
 
 .dcc_dynamic_loglik <- function(pars, arglist)
@@ -202,7 +41,7 @@
 {
     elapsed <- Sys.time()
     group <- parameter <- estimate <- NULL
-    if (object$distribution == "gaussian") {
+    if (object$distribution == "mvn") {
         R <- .dcc_constant_values(pars = NULL, spec = object, type = "R")
         hessian <- NULL
         scores <- NULL
@@ -213,11 +52,9 @@
         H <- .lower_tri_matrix(H, diag = TRUE)
         R <- .lower_tri_matrix(R, diag = FALSE)
         pmatrix <- copy(object$parmatrix)
-        garch_nll <- sum(sapply(object$univariate, function(x) -1.0 * as.numeric(logLik(x))))
         W <- .dcc_constant_values(pars = NULL, spec = object, return_all = TRUE)
-        dcc_nll <- W[["nll"]]
+        model_nll <- W[["nll"]]
         # quasi-likelihood
-        model_nll <- garch_nll + dcc_nll
         solution <- NULL
         pmatrix <- copy(object$parmatrix)
         all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)))
@@ -243,6 +80,7 @@
             arglist$distribution <- object$distribution
             arglist$lower <- lower
             arglist$upper <- upper
+            arglist$Sigma <- coredata(sigma(object$univariate))
             pars <- init_pars
             solution <- list(converged = TRUE)
             solution$conditions <- NULL
@@ -256,10 +94,8 @@
             H <- .lower_tri_matrix(H, diag = TRUE)
             R <- .lower_tri_matrix(R, diag = FALSE)
             pmatrix <- copy(object$parmatrix)
-            garch_nll <- sum(sapply(object$univariate, function(x) -1.0 * as.numeric(logLik(x))))
-            dcc_nll <- solution$nll
+            model_nll <- solution$nll
             # quasi-likelihood
-            model_nll <- garch_nll + dcc_nll
             solution <- NULL
             pmatrix <- copy(object$parmatrix)
             # swttch to calculate
@@ -299,6 +135,7 @@
             arglist$distribution <- object$distribution
             arglist$lower <- lower
             arglist$upper <- upper
+            arglist$s <- coredata(sigma(object$univariate))
             assign("pars", init_pars, envir = dcc_env)
             sol <- .dcc_constant_solver(solver = solver, pars = init_pars, fun = .dcc_constant_loglik, lower = lower, upper = upper,
                                            control = control, arglist = arglist)
@@ -319,10 +156,8 @@
                 H <- .lower_tri_matrix(H, diag = TRUE)
                 R <- .lower_tri_matrix(R, diag = FALSE)
                 pmatrix <- copy(object$parmatrix)
-                garch_nll <- sum(sapply(object$univariate, function(x) -1.0 * as.numeric(logLik(x))))
-                dcc_nll <- solution$nll
+                model_nll <- solution$nll
                 # quasi-likelihood
-                model_nll <- garch_nll + dcc_nll
                 solution <- NULL
                 pmatrix <- copy(object$parmatrix)
                 pmatrix[estimate == 1]$value <- pars
@@ -347,7 +182,7 @@
     elapsed <- Sys.time() - elapsed
     out <- list(parmatrix = pmatrix, solution = solution, mu = object$target$mu, hessian = hessian, scores = scores,
                 R = R, H = H, whitened_residuals = whitened_residuals,
-                dcc_nll = dcc_nll, loglik = model_nll, joint_parmatrix = mmatrix, spec = object)
+                loglik = model_nll, joint_parmatrix = mmatrix, spec = object)
     class(out) <- c("dcc.estimate","dcc.constant")
     return(out)
 }
@@ -381,6 +216,7 @@
     upper <- object$parmatrix[estimate == 1]$upper
     arglist$lower <- lower
     arglist$upper <- upper
+    arglist$s <- coredata(sigma(object$univariate))
     init_pars <- object$parmatrix[estimate == 1]$value
     maxpq <- max(object$dynamics$order)
     assign("pars", init_pars, envir = dcc_env)
@@ -420,10 +256,8 @@
         Q <- .lower_tri_matrix(Q, diag = TRUE)
         pmatrix <- copy(object$parmatrix)
         pmatrix[estimate == 1]$value <- pars
-        garch_nll <- sum(sapply(object$univariate, function(x) -1.0 * as.numeric(logLik(x))))
-        dcc_nll <- solution$nll
-        # quasi-likelihood
-        model_nll <- garch_nll + dcc_nll
+        dcc_nll <- W[["dcc_nll"]]
+        model_nll <- solution$nll
         # hessian and scores
         all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)), pmatrix[estimate == 1]$value)
         new_spec <- copy(object)
@@ -512,14 +346,16 @@
         dccorder <- c(dccorder[1], 0, dccorder[2])
     }
     z <- residuals(new_univariate, standardize = TRUE)
+    s <- coredata(sigma(new_univariate))
     maxpq <- max(object$spec$dynamics$order)
     cfit <- switch(object$spec$distribution,
-                   "gaussian" = .dcc_dynamic_normal_filter(alpha = alpha, gamma = gamma, beta = beta, z = z, dccorder = dccorder, n_update = n_update),
-                   "student" = .dcc_dynamic_student_filter(alpha = alpha, gamma = gamma, beta = beta, shape = shape, z = z, dccorder = dccorder, n_update = n_update)
+                   "mvn" = .dcc_dynamic_normal_filter(alpha = alpha, gamma = gamma, beta = beta, z = z, s = s, dccorder = dccorder, n_update = n_update),
+                   "mvt" = .dcc_dynamic_student_filter(alpha = alpha, gamma = gamma, beta = beta, shape = shape, z = z, s = s, dccorder = dccorder, n_update = n_update)
     )
     R <- cfit[["R"]]
-    nllvec <- cfit[["llhvec"]]
+    nllvec <- cfit[["ll_vec"]]
     nll <- cfit[["nll"]]
+    dcc_nll <- cfit[["dcc_nll"]]
     Qbar <- cfit[["Qbar"]]
     Nbar <- cfit[["Nbar"]]
     Q <- cfit[["Q"]]
@@ -534,9 +370,8 @@
     H <- .lower_tri_matrix(H, diag = TRUE)
     R <- .lower_tri_matrix(R, diag = FALSE)
     Q <- .lower_tri_matrix(Q, diag = TRUE)
-    garch_nll <- sum(sapply(new_univariate, function(x) -1.0 * as.numeric(logLik(x))))
     # quasi-likelihood
-    model_nll <- garch_nll + nll
+    model_nll <- nll
     # hessian and scores
     object$Qbar <- Qbar
     object$Nbar <- Nbar
@@ -544,7 +379,7 @@
     object$H <- H
     object$Q <- Q
     object$whitened_residuals <- whitened_residuals
-    object$dcc_nll <- nll
+    object$dcc_nll <- dcc_nll
     object$loglik <- model_nll
     object$elapsed <- Sys.time() - elapsed
     class(object) <- c("dcc.estimate","dcc.dynamic", "dcc.filter")
@@ -596,28 +431,27 @@
     object$spec$target$index <- .garch_extract_index(new_univariate)
     object$spec$univariate <- new_univariate
     shape <- object$parmatrix[group == "shape"]$value
-    z <- residuals(new_univariate, standardize = TRUE)
+    Z <- residuals(new_univariate, standardize = TRUE)
+    S <- coredata(sigma(new_univariate))
     cfit <- switch(object$spec$distribution,
-                   "gaussian" = .dcc_constant_normal_filter(z = z, n_update = n_update),
-                   "student" = .dcc_constant_student_filter(z = z, shape = shape, n_update = n_update)
+                   "mvn" = .dcc_constant_normal_filter(Z = Z, S = S, n_update = n_update),
+                   "mvt" = .dcc_constant_student_filter(Z = Z, S = S, shape = shape, n_update = n_update)
     )
     R <- cfit[["R"]]
-    nllvec <- cfit$llhvec
-    nll <- cfit$nll
+    nllvec <- cfit[["ll_vec"]]
+    nll <- cfit[["nll"]]
     L <- .generate_constant_covariance(R, sigmas = coredata(sigma(new_univariate)), residuals = coredata(residuals(new_univariate)))
     whitened_residuals <- L[["W"]]
     H <- L[["H"]]
     # reshape the correlation and covariance to save space
     H <- .lower_tri_matrix(H, diag = TRUE)
     R <- .lower_tri_matrix(R, diag = FALSE)
-    garch_nll <- sum(sapply(new_univariate, function(x) -1.0 * as.numeric(logLik(x))))
     # quasi-likelihood
-    model_nll <- garch_nll + nll
+    model_nll <- nll
     # hessian and scores
     object$R <- R
     object$H <- H
     object$whitened_residuals <- whitened_residuals
-    object$dcc_nll <- nll
     object$loglik <- model_nll
     object$elapsed <- Sys.time() - elapsed
     class(object) <- c("dcc.estimate","dcc.constant","dcc.filter")
@@ -735,7 +569,7 @@
     rho <- .compose_tri_matrix(object$R, cdim, diag = FALSE)
     std_residuals <- array(0, dim = c(nsim, h, n_series))
     tmp_z <- matrix(rnorm(h * dim * nsim), ncol = dim, nrow = h * nsim)
-    if (object$spec$distribution == "student") {
+    if (object$spec$distribution == "mvt") {
         tmp_s <-  .rmvt(rho, tmp_z, shape)
     } else {
         tmp_s <-  .rmvnorm(rho, tmp_z)
@@ -781,6 +615,7 @@
 .dcc_dynamic_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
                                  forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
 {
+    parameter <- NULL
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
     if (is.null(forc_dates)) {
@@ -832,11 +667,16 @@
                                      std_noise = std_noise,
                                      timesteps = h, burn = 0, dccorder = dccorder,
                                      distribution = distribution)
+        sim$std_noise <- std_noise[-c(1:maxpq), ]
         return(sim)
     }, future.seed = TRUE, future.globals = TRUE, future.packages = "tsmarch")
     sim_list <- eval(sim_list)
     R_list <- lapply(sim_list, function(x) x[["R"]])
     Z_list <- lapply(sim_list, function(x) x[["Z"]])
+    std_noise <- lapply(sim_list, function(x) x[["std_noise"]])
+    std_noise <-  array(unlist(std_noise), dim = c(h, n_series, nsim))
+    std_noise <- aperm(std_noise, perm = c(3, 1, 2))
+
     vechn <- length(R_list[[1]][1,])
     std_residuals <- array(unlist(Z_list), dim = c(h, n_series, nsim))
     std_residuals <- aperm(std_residuals, perm = c(3, 1, 2))
@@ -861,11 +701,13 @@
     # generate Ht
     # lower tri vector [h x lower_tri_vector x nsim]
     H <- .cor2cov(R, sim_sigma, n_series)
-    # time varying distribution [mu H shape] [mu R shape]
-    out <- list(mu = sim_mu, H = H, R = R, Z = std_residuals,
+    out <- list(mu = sim_mu, H = H, R = R, Z = std_residuals, std_noise = std_noise,
                 n_series = n_series, nsim = nsim, h = h,
                 seed = seed, series_names = names(object$spec$univariate),
-                model = object$spec$dynamics$model, forc_dates = forc_dates)
+                sim_sigma = sim_sigma,
+                model = object$spec$dynamics$model, distribution = object$spec$distribution,
+                shape = object$parmatrix[parameter == "shape"]$value,
+                forc_dates = forc_dates)
     elapsed <- Sys.time() - elapsed
     out$elapsed <- elapsed
     class(out) <- c("dcc.predict","dcc.dynamic")
@@ -875,7 +717,7 @@
 .dcc_constant_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"), forc_dates = NULL,
                                   cond_mean = NULL, seed = NULL, ...)
 {
-    group <- NULL
+    parameter <- group <- NULL
     elapsed <- Sys.time()
     init_method <- "end"
     if (!is.null(seed)) set.seed(seed)
@@ -934,12 +776,15 @@
     out <- list(mu = sim_mu, H = H, R = R, Z = std_residuals,
                 n_series = n_series, nsim = nsim, h = h,
                 seed = seed, series_names = names(object$spec$univariate),
-                model = object$spec$dynamics$model, forc_dates = forc_dates)
+                model = object$spec$dynamics$model, distribution = object$spec$distribution,
+                shape = object$parmatrix[parameter == "shape"]$value,
+                forc_dates = forc_dates)
     elapsed <- Sys.time() - elapsed
     out$elapsed <- elapsed
     class(out) <- c("dcc.predict","dcc.constant")
     return(out)
 }
+
 
 # dcc newsimpact ---------------------------------------------------
 
@@ -1023,7 +868,129 @@
             z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,
             ltheta = 120, shade = 0.75, ticktype = "detailed", xlab = axis_names[1],
             ylab = axis_names[2], zlab = x$type,
-            cex.axis = 0.7, cex.main = 0.8, main = paste0(toupper(x$model)," [",toupper(x$dynamics),"] News Impact ", x$type," Surface"))
+            cex.axis = 0.7, cex.main = 0.8, main = paste0(toupper(x$model)," [",toupper(x$dynamics),"] News Impact ", upper_case_i(x$type,1,1)," Surface"))
     return(invisible(x))
 }
 
+# dcc predict analytic ---------------------------------------------------
+
+.dcc_dynamic_predict_analytic <- function(object, h = 1, forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
+{
+    elapsed <- Sys.time()
+    if (!is.null(seed)) set.seed(seed)
+    if (is.null(forc_dates)) {
+        forc_dates <- .forecast_dates(forc_dates, h = h, sampling = object$spec$univariate[[1]]$spec$target$sampling,
+                                      last_index = tail(object$spec$target$index,1))
+    } else {
+        if (length(forc_dates) != h) stop("\nforc_dates must be a vector of length h.")
+    }
+    init_method <- "end"
+    group <- NULL
+    mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    Z <- residuals(object, standardize = TRUE)
+    R <- tscor(object)
+    alpha <- object$parmatrix[group == "alpha"]$value
+    gamma <- object$parmatrix[group == "gamma"]$value
+    beta <- object$parmatrix[group == "beta"]$value
+    shape <- object$parmatrix[group == "shape"]$value
+    dcc_order <- object$spec$dynamics$order
+    maxpq <- max(dcc_order)
+    n_series <- object$spec$n_series
+    n <- NROW(object$Q)
+    Qbar <- object$Qbar
+    Nbar <- object$Nbar
+    distribution <- object$spec$distribution
+    if (object$spec$dynamics$model == "adcc") {
+        dcc_order <- c(dcc_order[1], dcc_order[1], dcc_order[2])
+    } else {
+        dcc_order <- c(dcc_order[1], 0, dcc_order[2])
+    }
+    Q_init <- Z_init <- NULL
+    init_states <- .dcc_sim_dynamic_initialize_values(object, Q_init, Z_init, init_method)
+    Q_init <- init_states$Qinit
+    Z_init <- init_states$Zinit
+    R_init <- tail(object$R, maxpq)
+    H_init <- tail(object$H, maxpq)
+    exc <- maxpq
+
+    garch_predictions <- lapply(1:n_series, function(i){
+        predict(object$spec$univariate[[i]], h = h, nsim  = 1)
+    })
+
+    sigmas <- do.call(cbind, lapply(1:n_series, function(i) {
+        coredata(garch_predictions[[i]]$sigma)
+    }))
+    sigmas <- rbind(matrix(0, ncol = n_series, nrow = maxpq), sigmas)
+    Z <- coredata(residuals(object, standardize = TRUE))
+    s_matrix <- .sign_matrix(Z)
+    if (dcc_order[2] > 0) {
+        asy_Z <- s_matrix * Z
+    } else {
+        asy_Z <- s_matrix * 0
+    }
+    alpha <- object$parmatrix[group == "alpha"]$value
+    beta <- object$parmatrix[group == "beta"]$value
+    gamma <- object$parmatrix[group == "gamma"]$value
+    sum_alpha <- sum(alpha)
+    sum_beta <- sum(beta)
+    sum_gamma <- sum(gamma)
+    dcc_sum <- sum_alpha + sum_beta
+    Omega <- Qbar * (1.0 - dcc_sum)
+    if (dcc_order[1] > 0) {
+        Omega <- Omega - sum_gamma * Nbar
+    }
+    R_predict <- H_predict <- Q_predict <- array(NA, dim = c(n_series, n_series, h + maxpq))
+    for (i in 1:maxpq) {
+        Q_predict[,,i] <- Q_init[,,i]
+        R_predict[,,i] <- .tril2sym(matrix(R_init[i,], nrow = 1), n_series, FALSE)[,,1]
+        H_predict[,,i] <- .tril2sym(matrix(H_init[i,], nrow = 1), n_series, TRUE)[,,1]
+    }
+
+    for (i in (maxpq + 1):(h + maxpq)) {
+        Q_predict[,,i] <- Omega
+        if (i == (maxpq + 1)) {
+            if (dcc_order[1] > 0) {
+                for (j in 1:dcc_order[1]) {
+                    Q_predict[,,i] <- Q_predict[,,i] + alpha[j] * (Z[i - j, ] %*% t(Z[i - j, ]))
+                }
+            }
+            if (dcc_order[2] > 0) {
+                for (j in 1:dcc_order[2]) {
+                    Q_predict[,,i] <- Q_predict[,,i] + gamma[j] * (asy_Z[i - j, ] %*% t(asy_Z[i - j, ]))
+                }
+            }
+            if (dcc_order[3] > 0) {
+                for (j in 1:dcc_order[3]) {
+                    Q_predict[,,i] <- Q_predict[,,i] + beta[j] * Q_predict[,,i - j]
+                }
+            }
+            Q_tmp <- diag(1/sqrt(diag(Q_predict[,,i])), n_series, n_series)
+            R_predict[,,i] <- Q_tmp %*% Q_predict[,,i] %*% t(Q_tmp)
+            D_tmp <- diag(sigmas[i, ], n_series, n_series)
+            H_predict[,,i] <- D_tmp %*% R_predict[,,i] %*% D_tmp
+            # now the unconditional calculations
+            Q_star <- diag(1/sqrt(diag(Q_predict[,,i])), n_series, n_series)
+            e_R <- Q_star %*% Q_predict[,,i] %*% t(Q_star)
+            Q_bar_star <- diag(1/sqrt(diag(Qbar)), n_series, n_series)
+            R_bar <- Q_bar_star %*% Qbar %*% t(Q_bar_star)
+        } else {
+            R_predict[,,i] = (1 - dcc_sum^(i - maxpq - 1)) * R_bar + dcc_sum^(i - maxpq - 1) * e_R
+            D_tmp <- diag(sigmas[i, ], n_series, n_series)
+            H_predict[,,i] <- D_tmp %*% R_predict[,,i] %*% D_tmp
+            Q_predict[,,i] <- Q_predict[,,maxpq + 1]
+        }
+    }
+    if (maxpq > 0) {
+        Q_predict <- Q_predict[,,(maxpq + 1):(maxpq + h)]
+        H_predict <- H_predict[,,(maxpq + 1):(maxpq + h)]
+        R_predict <- R_predict[,,(maxpq + 1):(maxpq + h)]
+    }
+    out <- list(mu = cond_mean, H = H_predict, R = R_predict, Z = Z,
+                n_series = n_series, h = h,
+                seed = seed, series_names = names(object$spec$univariate),
+                model = object$spec$dynamics$model, forc_dates = forc_dates)
+    elapsed <- Sys.time() - elapsed
+    out$elapsed <- elapsed
+    class(out) <- c("dcc.predict","dcc.dynamic")
+    return(out)
+}

@@ -32,13 +32,13 @@
 \item{solver}{the solver to use for the second stage estimation of the multivariate
 dynamics. Valid choices are \code{\link[Rsolnp]{solnp}}, \code{\link[nloptr]{nloptr}}
 and \code{\link[stats]{optim}}, with the latter using the \dQuote{L-BFGS-B} method.
-This option is inactive for the GO-GARCH model which uses the default solver in
+This option is inactive for the GOGARCH model which uses the default solver in
 package \dQuote{tsgarch} for the estimation of the independent factors.}
 
 \item{control}{solver control parameters.}
 
 \item{return_hessian}{whether to calculate and return the partitioned hessian
-of the model (see details). Not applicable in the case of the GO-GARCH model.}
+of the model (see details). Not applicable in the case of the GOGARCH model.}
 
 \item{...}{for the GOGARCH model, additional options passed to the \code{\link{radical}}
 function.}
@@ -67,7 +67,7 @@ is available. In that case, the scores are still calculated and the resulting
 standard errors will be based on the outer product of gradients.
 }
 
-\subsection{GO-GARCH Model}{
+\subsection{GOGARCH Model}{
 
 The independent factors are calculated by first pre-whitening the data (PCA),
 selecting the number of factors, and then solving for the rotation matrix. A

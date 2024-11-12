@@ -3,17 +3,31 @@
 \name{value_at_risk}
 \alias{value_at_risk}
 \alias{value_at_risk.gogarch.predict}
+\alias{value_at_risk.dcc.predict}
+\alias{value_at_risk.cgarch.predict}
+\alias{value_at_risk.gogarch.simulate}
+\alias{value_at_risk.dcc.simulate}
+\alias{value_at_risk.cgarch.simulate}
 \title{Value at Risk (VaR) method for predicted and simulated objects}
 \usage{
 value_at_risk(object, ...)
 
 \method{value_at_risk}{gogarch.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{value_at_risk}{dcc.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{value_at_risk}{cgarch.predict}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{value_at_risk}{gogarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{value_at_risk}{dcc.simulate}(object, weights = NULL, alpha = 0.05, ...)
+
+\method{value_at_risk}{cgarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
 }
 \arguments{
 \item{object}{an object from the predict or simulate methods.}
 
-\item{...}{additional parameters passed to the \code{\link{tsconvolve}} method
-for the GO-GARCH model.}
+\item{...}{not used.}
 
 \item{weights}{a vector of weights of length equal to the number of series. If
 NULL then an equal weight vector is used.}
@@ -21,8 +35,7 @@ NULL then an equal weight vector is used.}
 \item{alpha}{the quantile level for the value at risk.}
 }
 \value{
-an object of class \dQuote{tsmodel.predict} which is a matrix of dimensions
-sim x h of the value at risk.
+an xts matrix.
 }
 \description{
 Value at Risk (VaR) method for predicted and simulated objects

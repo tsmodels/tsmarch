@@ -28,9 +28,9 @@ Extract the log likelihood of the model at the estimated optimal parameter value
 }
 \details{
 For all models in the package, the log-likelihood is a combination of the univariate
-log-likelihood and the multivariate log-likelihood. For the GO-GARCH model, being an
+log-likelihood and the multivariate log-likelihood. For the GOGARCH model, being an
 independent factor model, this is the sum of the univariate GARCH log-likelihoods
-plus a term for the mixing matrix. The number of parameters in the GO-GARCH model
+plus a term for the mixing matrix. The number of parameters in the GOGARCH model
 reported (\dQuote{df}) represents the univariate independent factor parameters
 plus the number of parameters in the rotation matrix U of the ICA algorithm.
 }

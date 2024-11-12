@@ -21,6 +21,7 @@
   fft_step = 0.001,
   fft_by = 1e-04,
   fft_support = c(-1, 1),
+  distribution = FALSE,
   ...
 )
 
@@ -30,6 +31,7 @@
   fft_step = 0.001,
   fft_by = 1e-04,
   fft_support = c(-1, 1),
+  distribution = FALSE,
   ...
 )
 }
@@ -47,13 +49,17 @@ also allowed with the correct number of rows (time points or horizon).}
 
 \item{fft_support}{allows either a fixed support range to be given for the inversion else this is
 calculated (if NULL) by examining the upper and lower quantiles of each independent factor modeled.
-For the Generalized Hyperbolic distribution, it is not reccomended to leave this as NULL since
+For the Generalized Hyperbolic distribution, it is not recommended to leave this as NULL since
 it is quite expensive to calculate the quantiles and will significantly slow down execution time.}
 
 \item{...}{not currently supported.}
+
+\item{distribution}{for the simulated and predicted object, whether to apply to each draw or on the
+average across draws (for the predicted object this is the analytic solution rather than the
+average).}
 }
 \value{
-an object of class \dQuote{gogarch.fft}
+an object of class \dQuote{gogarch.fft} or \dQuote{gogarch.fftsim}.
 }
 \description{
 Generates the weighted density of the GOGARCH NIG or GH model.

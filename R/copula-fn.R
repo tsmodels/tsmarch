@@ -5,7 +5,7 @@
     include <- series <- out  <- NULL
     if (dynamics == "constant") {
         model_name <- "CONSTANT"
-        if (copula == "student") {
+        if (copula == "mvt") {
             out <- data.table(parameter = "shape", value = 4.0, lower = 2.01, upper = 50, estimate = 1, scale = 1, group = "shape", equation = "[D]", symbol = paste0("\\nu"))
         } else {
             out <- data.table(parameter = "shape", value = 4.0, lower = 0, upper = 0, estimate = 0, scale = 1, group = "shape", equation = "[D]", symbol = paste0("\\nu"))
@@ -31,7 +31,7 @@
             tmp <- data.table(parameter = paste0("beta_",1), value = 0.0, lower = 0, upper = 0, estimate = 0, scale = 1, group = "beta", equation = "[DCC]", symbol = paste0("\\alpha_",1))
         }
         out <- rbind(out, tmp)
-        if (copula == "student") {
+        if (copula == "mvt") {
             tmp <- data.table(parameter = "shape", value = 4.0, lower = 2.01, upper = 50, estimate = 1, scale = 1, group = "shape", equation = "[D]", symbol = paste0("\\nu"))
         } else {
             tmp <- data.table(parameter = "shape", value = 4.0, lower = 0, upper = 0, estimate = 0, scale = 1, group = "shape", equation = "[D]", symbol = paste0("\\nu"))
@@ -45,9 +45,9 @@
 
 .copula_ptransform <- function(z, shape, distribution)
 {
-    if (distribution == "gaussian") {
+    if (distribution == "mvn") {
         u <- do.call(cbind, lapply(1:ncol(z), function(i) pnorm(z[,i])))
-    } else if (distribution == "student") {
+    } else if (distribution == "mvt") {
         u <- do.call(cbind, lapply(1:ncol(z), function(i) pdist("std", z[,i], shape = shape)))
     }
     return(u)
@@ -128,7 +128,7 @@
     spec$transform$transform_model <- tmp$transform_model
     spec$transform$u[spec$transform$u < 3.330669e-16] <- 2.220446e-16
     spec$transform$u[spec$transform$u > 0.99999] <- 0.99999
-    copula_loglik <- .copula_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "llhvec")
+    copula_loglik <- .copula_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "ll_vec")
     maxpq <- max(spec$dynamics$order)
     if (maxpq > 0) {
         copula_loglik <- copula_loglik[-c(1:maxpq)]
@@ -273,7 +273,7 @@
     tmp <- copula_transformation_estimate(new_fit, spec$transformation)
     spec$transform$u <- tmp$u
     spec$transform$transform_model <- tmp$transform_model
-    copula_loglik <- .copula_constant_values(pmatrix_copula[estimate == 1]$value, spec, type = "llhvec")
+    copula_loglik <- .copula_constant_values(pmatrix_copula[estimate == 1]$value, spec, type = "ll_vec")
     garch_loglik <- do.call(cbind, lapply(new_fit, function(x) x$llvec))
     model_loglik <- -1.0 * rowSums(cbind(garch_loglik, copula_loglik))
     return(model_loglik)

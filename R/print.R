@@ -82,10 +82,15 @@
 
 .dist_names <- function(x) {
     switch(x,
-           "gaussian" = "Normal",
-           "norm" = "Normal",
-           "student" = "Student",
-           "std" = "Student",
-           "nig" = "maNIG",
-           "gh" = "maGH")
+           "mvn" = "MVN",
+           "norm" = "MVN",
+           "gaussian" = "MVN",
+           "normal" = "MVN",
+           "mvt" = "MVT",
+           "std" = "MVT",
+           "student" = "MVT",
+           "nig" = "MANIG",
+           "manig" = "MANIG",
+           "gh" = "MAGH",
+           "magh" = "MAGH")
 }

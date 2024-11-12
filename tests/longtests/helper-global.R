@@ -71,32 +71,32 @@ names(univariate_model) <- colnames(res)
 univariate_model <- to_multi_estimate(univariate_model)
 
 # CGARCH Model
-cgarch_spec_constant <- cgarch_modelspec(univariate_model, dynamics = "constant", transformation = "parametric", copula = "student", constant_correlation = "kendall", cond_mean = mu)
+cgarch_spec_constant <- cgarch_modelspec(univariate_model, dynamics = "constant", transformation = "parametric", copula = "mvt", constant_correlation = "kendall", cond_mean = mu)
 cgarch_constant_mod <- estimate(cgarch_spec_constant, control = list(trace = 0))
 
-cgarch_spec_dcc <- cgarch_modelspec(univariate_model, dynamics = "dcc", transformation = "parametric", copula = "student", cond_mean = mu)
+cgarch_spec_dcc <- cgarch_modelspec(univariate_model, dynamics = "dcc", transformation = "parametric", copula = "mvt", cond_mean = mu)
 cgarch_dcc_mod <- estimate(cgarch_spec_dcc, control = list(trace = 0), return_hessian = FALSE)
 
 # DCC Model
-dcc_spec_constant <- dcc_modelspec(univariate_model, dynamics = "constant", distribution = "student", cond_mean = mu)
+dcc_spec_constant <- dcc_modelspec(univariate_model, dynamics = "constant", distribution = "mvt", cond_mean = mu)
 dcc_constant_mod <- estimate(dcc_spec_constant, control = list(trace = 0))
 
-dcc_spec_dynamic <- dcc_modelspec(univariate_model, dynamics = "adcc", distribution = "student", cond_mean = mu)
+dcc_spec_dynamic <- dcc_modelspec(univariate_model, dynamics = "adcc", distribution = "mvt", cond_mean = mu)
 dcc_dynamic_mod <- estimate(dcc_spec_dynamic, control = list(trace = 0), return_hessian = FALSE)
 
 
 
 # CGARCH Model
-cgarch_spec_constant_nomean <- cgarch_modelspec(univariate_model, dynamics = "constant", transformation = "parametric", copula = "student", constant_correlation = "kendall")
+cgarch_spec_constant_nomean <- cgarch_modelspec(univariate_model, dynamics = "constant", transformation = "parametric", copula = "mvt", constant_correlation = "kendall")
 cgarch_constant_mod_nomean <- estimate(cgarch_spec_constant_nomean, control = list(trace = 0))
 
-cgarch_spec_dcc_nomean <- cgarch_modelspec(univariate_model, dynamics = "dcc", transformation = "parametric", copula = "student")
+cgarch_spec_dcc_nomean <- cgarch_modelspec(univariate_model, dynamics = "dcc", transformation = "parametric", copula = "mvt")
 cgarch_dcc_mod_nomean <- estimate(cgarch_spec_dcc_nomean, control = list(trace = 0), return_hessian = FALSE)
 
 # DCC Model
-dcc_spec_constant_nomean <- dcc_modelspec(univariate_model, dynamics = "constant", distribution = "student")
+dcc_spec_constant_nomean <- dcc_modelspec(univariate_model, dynamics = "constant", distribution = "mvt")
 dcc_constant_mod_nomean <- estimate(dcc_spec_constant_nomean, control = list(trace = 0))
 
-dcc_spec_dynamic_nomean <- dcc_modelspec(univariate_model, dynamics = "adcc", distribution = "student")
+dcc_spec_dynamic_nomean <- dcc_modelspec(univariate_model, dynamics = "adcc", distribution = "mvt")
 dcc_dynamic_mod_nomean <- estimate(dcc_spec_dynamic_nomean, control = list(trace = 0), return_hessian = FALSE)
 # test_dir("tests/longtests/")

@@ -306,7 +306,7 @@ bdiag <- function(...)
     series_names <- names(spec$univariate)
     for (i in 1:length(out)) out[[i]][,series := series_names[i]]
     out <- rbindlist(out)
-    out <- rbind(out, spec$parmatrix)
+    out <- rbind(out, spec$parmatrix[,colnames(out), with = FALSE])
     return(out)
 }
 
@@ -510,4 +510,17 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
     L <- list(distribution = pred, original_series = hist)
     class(L) <- "tsmodel.predict"
     return(L)
+}
+
+
+.es_empirical_calculation <- function(x, alpha = 0.05) {
+    x <- sort(x)
+    var_threshold <- quantile(x, alpha)
+    expected_shortfall <- mean(x[x < var_threshold])
+    return(expected_shortfall)
+}
+
+.make_xts <- function(x, dates)
+{
+   return(xts(x, order.by = dates))
 }

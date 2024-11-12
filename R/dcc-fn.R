@@ -1,5 +1,168 @@
 # !diagnostics suppress=data.table,copy,as.data.table,setnames
 
+# dcc c++ values ---------------------------------------------------
+
+.dcc_dynamic_values <- function(pars, spec, type = "nll", return_all = FALSE)
+{
+    estimate <- group <- NULL
+    type <- match.arg(type[1], c("nll","dcc_nll","ll_vec","dccll_vec","R","Qbar","Nbar","Q"))
+    pmatrix <- copy(spec$parmatrix)
+    pmatrix[estimate == 1]$value <- pars
+    dist <- spec$distribution
+    dccorder <- spec$dynamics$order
+    if (spec$dynamics$model == "adcc") {
+        dccorder <- c(dccorder[1], dccorder[1], dccorder[2])
+    } else {
+        dccorder <- c(dccorder[1], 0, dccorder[2])
+    }
+    z <- residuals(spec$univariate, standardize = TRUE)
+    s <- coredata(sigma(spec$univariate))
+    if (return_all) {
+        out <- switch(dist,
+                      "mvn" = .dcc_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
+                                                       gamma = pmatrix[group == "gamma"]$value,
+                                                       beta = pmatrix[group == "beta"]$value,
+                                                       z = z, s = s,
+                                                       dccorder = dccorder),
+                      "mvt" = .dcc_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
+                                                       gamma = pmatrix[group == "gamma"]$value,
+                                                       beta = pmatrix[group == "beta"]$value,
+                                                       shape = pmatrix[group == "shape"]$value,
+                                                       z = z, s = s,
+                                                       dccorder = dccorder)
+        )
+    } else {
+        out <- switch(dist,
+                      "mvn" = .dcc_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
+                                                       gamma = pmatrix[group == "gamma"]$value,
+                                                       beta = pmatrix[group == "beta"]$value,
+                                                       z = z, s = s,
+                                                       dccorder = dccorder)[[type]],
+                      "mvt" = .dcc_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
+                                                       gamma = pmatrix[group == "gamma"]$value,
+                                                       beta = pmatrix[group == "beta"]$value,
+                                                       shape = pmatrix[group == "shape"]$value,
+                                                       z = z, s = s,
+                                                       dccorder = dccorder)[[type]]
+        )
+    }
+    return(out)
+}
+
+.dcc_constant_values <- function(pars, spec, type = "nll", return_all = FALSE)
+{
+    estimate <- group <- NULL
+    pmatrix <- copy(spec$parmatrix)
+    if (!is.null(pars)) {
+        pmatrix[estimate == 1]$value <- pars
+    }
+    dist <- spec$distribution
+    z <- residuals(spec$univariate, standardize = TRUE)
+    s <- coredata(sigma(spec$univariate))
+    if (return_all) {
+        out <- switch(dist,
+                      "mvn" = .dcc_constant_normal(Z = z, S = s),
+                      "mvt" = .dcc_constant_student(Z = z, S = s, shape = pmatrix[group == "shape"]$value)
+        )
+    } else {
+        out <- switch(dist,
+                      "mvn" = .dcc_constant_normal(Z = z, S = s)[[type]],
+                      "mvt" = .dcc_constant_student(Z = z, S = s, shape = pmatrix[group == "shape"]$value)[[type]]
+        )
+    }
+    return(out)
+}
+
+# dcc c++ fun ---------------------------------------------------
+.dcc_dynamic_fun <- function(spec, type = "nll")
+{
+    estimate <- group <- NULL
+    if (spec$distribution == "mvn") {
+        fun <- function(x, arglist)
+        {
+            arglist$parmatrix[estimate == 1]$value <- x
+            .dcc_dynamic_normal(alpha = arglist$parmatrix[group == "alpha"]$value,
+                                gamma = arglist$parmatrix[group == "gamma"]$value,
+                                beta = arglist$parmatrix[group == "beta"]$value,
+                                z = arglist[["z"]], s = arglist[["s"]], dccorder = arglist$dccorder)[[type]]
+        }
+    } else {
+        fun <- function(x, arglist)
+        {
+            arglist$parmatrix[estimate == 1]$value <- x
+            .dcc_dynamic_student(alpha = arglist$parmatrix[group == "alpha"]$value,
+                                 gamma = arglist$parmatrix[group == "gamma"]$value,
+                                 beta = arglist$parmatrix[group == "beta"]$value,
+                                 shape = arglist$parmatrix[group == "shape"]$value,
+                                 z = arglist[["z"]], s = arglist[["s"]], dccorder = arglist$dccorder)[[type]]
+        }
+    }
+    if (spec$dynamics$model == "adcc") {
+        cons <- function(x, arglist) {
+            arglist$parmatrix[estimate == 1]$value <- x
+            .adcc_constraint(alpha = arglist$parmatrix[group == "alpha"]$value,
+                             gamma = arglist$parmatrix[group == "gamma"]$value,
+                             beta = arglist$parmatrix[group == "beta"]$value,
+                             shape = arglist$parmatrix[group == "shape"]$value,
+                             z = arglist[["z"]],
+                             dccorder = arglist$dccorder) - 0.999
+        }
+        jac <- function(x, arglist) {
+            jacobian(func = arglist$inequality_cons, x = x, arglist = arglist)
+        }
+    } else {
+        cons <- function(x, arglist) {
+            arglist$parmatrix[estimate == 1]$value <- x
+            sum(arglist$parmatrix[group == "alpha"]$value) + sum(arglist$parmatrix[group == "beta"]$value) - 0.999
+        }
+
+        j <- matrix(0, ncol = length(spec$parmatrix[estimate == 1]$value), nrow = 1)
+        cnames <- spec$parmatrix[estimate == 1]$group
+        if (any(cnames %in% "alpha")) {
+            j[which(cnames %in% "alpha")] <- 1
+        }
+        if (any(cnames %in% "beta")) {
+            j[which(cnames %in% "beta")] <- 1
+        }
+        jac <- function(x, arglist) {
+            return(j)
+        }
+    }
+    grad_fun <- function(x, arglist) {
+        if (arglist$inequality_cons(x, arglist) >= 0) {
+            return(matrix(1e6, ncol = length(x), nrow = 1))
+        } else {
+            return(grad(func = arglist$fun, x = x, arglist = arglist))
+        }
+    }
+    hess_fun <- function(x, arglist) {
+        nderiv_hessian(func = arglist$fun, x = x, lower = arglist$lower, upper = arglist$upper, arglist = arglist)
+    }
+    return(list(fun = fun, grad = grad_fun, hess = hess_fun, inequality_cons = cons, inequality_jac = jac))
+}
+
+
+.dcc_constant_fun <- function(spec, type = "nll")
+{
+    estimate <- group <- NULL
+    if (spec$distribution == "mvt") {
+        fun <- function(x, arglist)
+        {
+            arglist$parmatrix[estimate == 1]$value <- x
+            .dcc_constant_student(shape = arglist$parmatrix[group == "shape"]$value, S = arglist[["s"]], Z = arglist$z)[[type]]
+        }
+    } else {
+        stop("\ndistrbution not recognized.")
+    }
+    grad_fun <- function(x, arglist) {
+        return(grad(func = arglist$fun, x = x, arglist = arglist))
+    }
+    hess_fun <- function(x, arglist) {
+        nderiv_hessian(func = arglist$fun, x = x, lower = arglist$lower, upper = arglist$upper, arglist = arglist)
+    }
+    return(list(fun = fun, grad = grad_fun, hess = hess_fun, inequality_cons = NULL, inequality_jac = NULL))
+}
+
 .dcc_dynamic_joint_nll <- function(pars, spec)
 {
     estimate <- NULL
@@ -20,9 +183,8 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    garch_loglik <- sapply(new_fit, function(x) x$loglik)
-    dcc_loglik <- .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * (sum(garch_loglik) + dcc_loglik)
+    tmp <- .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
+    model_loglik <- -1.0 * tmp
     return(model_loglik)
 }
 
@@ -35,7 +197,7 @@
     pmatrix_dcc <- pmatrix_spec[["DCC"]]
     pmatrix_spec[["DCC"]] <- NULL
     n <- length(pmatrix_spec)
-    new_fit <- lapply(1:n, function(i){
+    new_fit <- lapply(1:n, function(i) {
         newf <- spec$univariate[[i]]
         newf$parmatrix <- pmatrix_spec[[i]]
         maxpq <- max(newf$spec$model$order)
@@ -46,13 +208,11 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    dcc_loglik <- .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "llhvec")
+    model_loglik <- -1.0 * .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "dccll_vec")
     maxpq <- max(spec$dynamics$order)
     if (maxpq > 0) {
-        dcc_loglik <- dcc_loglik[-c(1:maxpq)]
+        model_loglik <- model_loglik[-c(1:maxpq)]
     }
-    garch_loglik <- do.call(cbind, lapply(new_fit, function(x) x$llvec))
-    model_loglik <- -1.0 * rowSums(cbind(garch_loglik, dcc_loglik))
     return(model_loglik)
 }
 
@@ -160,9 +320,8 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    garch_loglik <- sapply(new_fit, function(x) x$loglik)
-    dcc_loglik <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * (sum(garch_loglik) + dcc_loglik)
+    model_loglik <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
+    model_loglik <- -1.0 * model_loglik
     return(model_loglik)
 }
 
@@ -187,9 +346,7 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    dcc_loglik <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "llhvec")
-    garch_loglik <- do.call(cbind, lapply(new_fit, function(x) x$llvec))
-    model_loglik <- -1.0 * rowSums(cbind(garch_loglik, dcc_loglik))
+    model_loglik <- -1.0 * .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "ll_vec")
     return(model_loglik)
 }
 

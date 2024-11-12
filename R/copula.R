@@ -5,7 +5,7 @@
 .copula_dynamic_values <- function(pars, spec, type = "nll", return_all = FALSE)
 {
     estimate <- group <- NULL
-    type <- match.arg(type[1], c("nll","llhvec","Z","R","Qbar","Nbar","Q"))
+    type <- match.arg(type[1], c("nll","ll_vec","Z","R","Qbar","Nbar","Q"))
     pmatrix <- copy(spec$parmatrix)
     pmatrix[estimate == 1]$value <- pars
     dist <- spec$copula
@@ -17,12 +17,12 @@
     }
     if (return_all) {
         out <- switch(dist,
-                      "gaussian" = .copula_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
+                      "mvn" = .copula_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
                                                           gamma = pmatrix[group == "gamma"]$value,
                                                           beta = pmatrix[group == "beta"]$value,
                                                           u = spec$transform$u,
                                                           dccorder = dccorder),
-                      "student" = .copula_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
+                      "mvt" = .copula_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
                                                           gamma = pmatrix[group == "gamma"]$value,
                                                           beta = pmatrix[group == "beta"]$value,
                                                           shape = pmatrix[group == "shape"]$value,
@@ -31,12 +31,12 @@
         )
     } else {
         out <- switch(dist,
-                      "gaussian" = .copula_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
+                      "mvn" = .copula_dynamic_normal(alpha = pmatrix[group == "alpha"]$value,
                                                           gamma = pmatrix[group == "gamma"]$value,
                                                           beta = pmatrix[group == "beta"]$value,
                                                           u = spec$transform$u,
                                                           dccorder = dccorder)[[type]],
-                      "student" = .copula_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
+                      "mvt" = .copula_dynamic_student(alpha = pmatrix[group == "alpha"]$value,
                                                           gamma = pmatrix[group == "gamma"]$value,
                                                           beta = pmatrix[group == "beta"]$value,
                                                           shape = pmatrix[group == "shape"]$value,
@@ -57,13 +57,13 @@
     dist <- spec$copula
     if (return_all) {
         out <- switch(dist,
-                      "gaussian" = .copula_constant_normal(u = spec$transform$u, method = spec$dynamics$constant),
-                      "student" = .copula_constant_student(u = spec$transform$u, shape = pmatrix[group == "shape"]$value)
+                      "mvn" = .copula_constant_normal(u = spec$transform$u, method = spec$dynamics$constant),
+                      "mvt" = .copula_constant_student(u = spec$transform$u, shape = pmatrix[group == "shape"]$value)
         )
     } else {
         out <- switch(dist,
-                      "gaussian" = .copula_constant_normal(u = spec$transform$u, method = spec$dynamics$constant)[[type]],
-                      "student" = .copula_constant_student(u = spec$transform$u, shape = pmatrix[group == "shape"]$value)[[type]]
+                      "mvn" = .copula_constant_normal(u = spec$transform$u, method = spec$dynamics$constant)[[type]],
+                      "mvt" = .copula_constant_student(u = spec$transform$u, shape = pmatrix[group == "shape"]$value)[[type]]
         )
     }
     return(out)
@@ -74,7 +74,7 @@
 .copula_dynamic_fun <- function(spec, type = "nll")
 {
     estimate <- group <- NULL
-    if (spec$copula == "gaussian") {
+    if (spec$copula == "mvn") {
         fun <- function(x, arglist)
         {
             arglist$parmatrix[estimate == 1]$value <- x
@@ -145,7 +145,7 @@
 .copula_constant_fun <- function(spec, type = "nll")
 {
     estimate <- group <- NULL
-    if (spec$copula == "student") {
+    if (spec$copula == "mvt") {
         fun <- function(x, arglist)
         {
             arglist$parmatrix[estimate == 1]$value <- x
@@ -207,7 +207,7 @@
 {
     elapsed <- Sys.time()
     group <- parameter <- estimate <- NULL
-    if (object$copula == "gaussian") {
+    if (object$copula == "mvn") {
         R <- .copula_constant_values(pars = NULL, spec = object, type = "R")
         hessian <- NULL
         scores <- NULL
@@ -531,11 +531,11 @@
     }
     maxpq <- max(object$spec$dynamics$order)
     cfit <- switch(object$spec$copula,
-                   "gaussian" = .copula_dynamic_normal_filter(alpha = alpha, gamma = gamma, beta = beta, u = tmp$u, dccorder = dccorder, n_update = n_update),
-                   "student" = .copula_dynamic_student_filter(alpha = alpha, gamma = gamma, beta = beta, shape = shape, u = tmp$u, dccorder = dccorder, n_update = n_update)
+                   "mvn" = .copula_dynamic_normal_filter(alpha = alpha, gamma = gamma, beta = beta, u = tmp$u, dccorder = dccorder, n_update = n_update),
+                   "mvt" = .copula_dynamic_student_filter(alpha = alpha, gamma = gamma, beta = beta, shape = shape, u = tmp$u, dccorder = dccorder, n_update = n_update)
     )
     R <- cfit[["R"]]
-    nllvec <- cfit[["llhvec"]]
+    nllvec <- cfit[["ll_vec"]]
     nll <- cfit[["nll"]]
     Qbar <- cfit[["Qbar"]]
     Nbar <- cfit[["Nbar"]]
@@ -622,12 +622,12 @@
     object$spec$transform$transform_model <- tmp$transform_model
     shape <- object$parmatrix[group == "shape"]$value
     cfit <- switch(object$spec$copula,
-                   "gaussian" = .copula_constant_normal_filter(u = tmp$u, method = object$spec$dynamics$constant, n_update = n_update),
-                   "student" = .copula_constant_student_filter(u = tmp$u, shape = shape, n_update = n_update)
+                   "mvn" = .copula_constant_normal_filter(u = tmp$u, method = object$spec$dynamics$constant, n_update = n_update),
+                   "mvt" = .copula_constant_student_filter(u = tmp$u, shape = shape, n_update = n_update)
     )
     R <- cfit[["R"]]
     copula_residuals <- cfit[["Z"]]
-    nllvec <- cfit$llhvec
+    nllvec <- cfit[["ll_vec"]]
     nll <- cfit$nll
     L <- .generate_constant_covariance(R, sigmas = coredata(sigma(new_univariate)), residuals = coredata(residuals(new_univariate)))
     whitened_residuals <- L[["W"]]
