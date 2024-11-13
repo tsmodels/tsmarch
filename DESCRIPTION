@@ -12,8 +12,11 @@ Imports: Rcpp, RcppParallel, tsgarch (>= 1.0.3), tsdistributions (>= 1.0.2), Rcp
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
+BugReports: https://github.com/tsmodels/tsmarch/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+ByteCompile: true
+URL: https://github.com/tsmodels/tsmarch, https://www.nopredict.com
 RdMacros: Rdpack
 Suggests: 
     knitr,

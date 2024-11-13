@@ -6,7 +6,18 @@
 \alias{tsmarch-package}
 \title{tsmarch: Multivariate ARCH Models}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 Feasible Multivariate Autoregressive Conditional Heteroscedasticity (ARCH) models including Dynamic Conditional Correlation (DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) \doi{10.1016/bs.host.2019.01.001}.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/tsmodels/tsmarch}
+  \item \url{https://www.nopredict.com}
+  \item Report bugs at \url{https://github.com/tsmodels/tsmarch/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Alexios Galanos \email{alexios@4dscape.com} (\href{https://orcid.org/0009-0000-9308-0457}{ORCID}) [copyright holder]
