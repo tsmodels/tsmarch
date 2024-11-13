@@ -1,6 +1,6 @@
 #' The Robust Accurate, Direct ICA ALgorithm (RADICAL)
 #' @description
-#' The ICA algorithm of Learned-Miller (2003), based on an efficient entropy
+#' The ICA algorithm of Learned-Miller (2003), is based on an efficient entropy
 #' estimator (due to Vasicek (1976)) which is robust to outliers and requires
 #' no strong characterization assumptions about the data generating process.
 #' @param X the data matrix (n x m) where n is the number of samples and m is the number of signals.

@@ -2650,12 +2650,13 @@ value_at_risk <- function(object, ...)
 
 #' Value at Risk (VaR) method for predicted and simulated objects
 #'
-#' @param object an object from the predict or simulate methods.
+#' @param object an object generated from the predict or simulate methods.
 #' @param weights a vector of weights of length equal to the number of series. If
 #' NULL then an equal weight vector is used.
 #' @param alpha the quantile level for the value at risk.
 #' @param ... not used.
-#' @return an xts matrix.
+#' @return a matrix of the value at risk. For predict type input objects this will be an xts
+#' matrix with index the forecast dates.
 #' @export
 #' @method value_at_risk gogarch.predict
 #' @rdname value_at_risk
@@ -2771,13 +2772,14 @@ expected_shortfall <- function(object, ...)
 
 #' Expected Shortfall (ES) method for predicted and simulated objects
 #'
-#' @param object an object from the predict or simulate methods.
+#' @param object an object generated from the predict or simulate methods.
 #' @param weights a vector of weights of length equal to the number of series. If
 #' NULL then an equal weight vector is used.
 #' @param alpha the quantile level for the value at risk.
 #' for the GOGARCH model.
 #' @param ... not used.
-#' @return an xts matrix.
+#' @return a matrix of the expected shortfall. For predict type input objects this will be an xts
+#' matrix with index the forecast dates.
 #' @export
 #' @method expected_shortfall gogarch.predict
 #' @rdname expected_shortfall
