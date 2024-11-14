@@ -6,7 +6,7 @@
 [![packageversion](https://img.shields.io/badge/Package%20version-1.0.0-orange.svg?style=flat-square)](commits/master)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/tsmarch)](https://cran.r-project.org/package=tsmarch)
 
-# tmgarch
+# tsmarch
 
 The `tsmarch` package represents a re-write and re-think of the models
 in [rmgarch](https://CRAN.R-project.org/package=rmgarch). It is written
