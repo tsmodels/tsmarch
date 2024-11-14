@@ -25,7 +25,7 @@ value_at_risk(object, ...)
 \method{value_at_risk}{cgarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
 }
 \arguments{
-\item{object}{an object from the predict or simulate methods.}
+\item{object}{an object generated from the predict or simulate methods.}
 
 \item{...}{not used.}
 
@@ -35,7 +35,8 @@ NULL then an equal weight vector is used.}
 \item{alpha}{the quantile level for the value at risk.}
 }
 \value{
-an xts matrix.
+a matrix of the value at risk. For predict type input objects this will be an xts
+matrix with index the forecast dates.
 }
 \description{
 Value at Risk (VaR) method for predicted and simulated objects

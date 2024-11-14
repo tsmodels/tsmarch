@@ -56,26 +56,11 @@
 
 fold3d <- function(unfolded, p) {
     dims <- dim(unfolded)
-    k <- dims[length(dims)]
     n <- dims[1]
-    # Determine the dimensions of the folded array
+    k <- dims[length(dims)]
     folded_dims <- c(rep(n, p + 1), k)
-    # Initialize the folded array
-    folded <- array(0, dim = folded_dims)
-    for (t in 1:k) {
-        for (i in 1:n) {
-            unfolded_slice <- unfolded[i, , t]
-            folded_slice <- array(unfolded_slice, dim = rep(n, p))
-            # Assign the reshaped slice to the folded array
-            if (p == 1) {
-                folded[i, , t] <- folded_slice
-            } else if (p == 2) {
-                folded[i, , , t] <- folded_slice
-            } else if (p == 3) {
-                folded[i, , , , t] <- folded_slice
-            }
-        }
-    }
+    # Reshape the unfolded array directly into the folded dimensions
+    folded <- array(unfolded, dim = folded_dims)
     return(folded)
 }
 
@@ -83,52 +68,22 @@ unfold3d <- function(folded) {
     dims <- dim(folded)
     n <- dims[1]
     p <- length(dims) - 2
-    k <- dim(folded)
-    k <- k[length(k)]
-    unfolded <- array(0, dim = c(n, n^p, k))
-    for (t in 1:k) {
-        for (i in 1:n) {
-            # Extract the relevant slice from the folded array
-            if (p == 1) {
-                folded_slice <- folded[i, , t]
-            } else if (p == 2) {
-                folded_slice <- folded[i, , , t]
-            } else if (p == 3) {
-                folded_slice <- folded[i, , , , t]
-            }
-            # Flatten the folded slice and assign it to the unfolded array
-            unfolded[i, , t] <- as.vector(folded_slice)
-        }
-    }
+    k <- dims[length(dims)]
+    unfolded_dims <- c(n, n^p, k)
+    # Reshape the folded array into the unfolded dimensions
+    unfolded <- array(folded, dim = unfolded_dims)
     return(unfolded)
 }
 
 
 fold4d <- function(unfolded, p) {
     dims <- dim(unfolded)
-    nsim <- dims[length(dims)]
-    h <- dims[length(dims) - 1]
     n <- dims[1]
-    # Determine the dimensions of the folded array
+    h <- dims[length(dims) - 1]
+    nsim <- dims[length(dims)]
     folded_dims <- c(rep(n, p + 1), h, nsim)
-    # Initialize the folded array
-    folded <- array(0, dim = folded_dims)
-    for (sim in 1:nsim) {
-        for (t in 1:h) {
-            for (i in 1:n) {
-                unfolded_slice <- unfolded[i, , t, sim]
-                folded_slice <- array(unfolded_slice, dim = rep(n, p))
-                # Assign the reshaped slice to the folded array
-                if (p == 1) {
-                    folded[i, , t, sim] <- folded_slice
-                } else if (p == 2) {
-                    folded[i, , , t, sim] <- folded_slice
-                } else if (p == 3) {
-                    folded[i, , , , t, sim] <- folded_slice
-                }
-            }
-        }
-    }
+    # Reshape the unfolded array directly into the folded dimensions
+    folded <- array(unfolded, dim = folded_dims)
     return(folded)
 }
 
@@ -136,26 +91,12 @@ unfold4d <- function(folded) {
     dims <- dim(folded)
     n <- dims[1]
     p <- length(dims) - 3
-    dims <- dim(folded)
     k <- dims[length(dims) - 1]
     nsim <- dims[length(dims)]
-    unfolded <- array(0, dim = c(n, n^p, k, nsim))
-    for (sim in 1:nsim) {
-        for (t in 1:k) {
-            for (i in 1:n) {
-                # Extract the relevant slice from the folded array
-                if (p == 1) {
-                    folded_slice <- folded[i, , t, sim]
-                } else if (p == 2) {
-                    folded_slice <- folded[i, , , t, sim]
-                } else if (p == 3) {
-                    folded_slice <- folded[i, , , , t, sim]
-                }
-                # Flatten the folded slice and assign it to the unfolded array
-                unfolded[i, , t, sim] <- as.vector(folded_slice)
-            }
-        }
-    }
+    unfolded_dims <- c(n, n^p, k, nsim)
+    # Reshape the folded array directly into the unfolded dimensions
+    unfolded <- array(folded, dim = unfolded_dims)
+
     return(unfolded)
 }
 
@@ -220,7 +161,6 @@ array4d_matrix_mean <- function(x)
         return(k)
     }
 }
-
 
 ghyp_variance <- function(alpha, beta, delta, mu, lambda)
 {

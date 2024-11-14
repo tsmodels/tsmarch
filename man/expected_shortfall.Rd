@@ -25,7 +25,7 @@ expected_shortfall(object, ...)
 \method{expected_shortfall}{cgarch.simulate}(object, weights = NULL, alpha = 0.05, ...)
 }
 \arguments{
-\item{object}{an object from the predict or simulate methods.}
+\item{object}{an object generated from the predict or simulate methods.}
 
 \item{...}{not used.}
 
@@ -36,7 +36,8 @@ NULL then an equal weight vector is used.}
 for the GOGARCH model.}
 }
 \value{
-an xts matrix.
+a matrix of the expected shortfall. For predict type input objects this will be an xts
+matrix with index the forecast dates.
 }
 \description{
 Expected Shortfall (ES) method for predicted and simulated objects

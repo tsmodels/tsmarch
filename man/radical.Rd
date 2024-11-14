@@ -94,7 +94,7 @@ A list with the following components:
 \item{elapsed}{the time taken to run the algorithm}
 }
 \description{
-The ICA algorithm of Learned-Miller (2003), based on an efficient entropy
+The ICA algorithm of Learned-Miller (2003), is based on an efficient entropy
 estimator (due to Vasicek (1976)) which is robust to outliers and requires
 no strong characterization assumptions about the data generating process.
 }
