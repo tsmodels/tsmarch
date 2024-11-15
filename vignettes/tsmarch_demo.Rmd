@@ -44,7 +44,6 @@ suppressMessages(library(xts))
 suppressMessages(library(shape))
 suppressMessages(library(tsgarch))
 suppressMessages(library(tsdistributions))
-
 data(globalindices)
 Sys.setenv(TZ = "UTC")
 train_set <- 1:1600
@@ -56,6 +55,7 @@ mu <- colMeans(train)
 train <- sweep(train, 2, mu, "-")
 test <- y[test_set,]
 test <- sweep(test, 2, mu, "-")
+oldpar <- par(mfrow = c(1,1))
 ```
 
 
@@ -153,6 +153,7 @@ class(L) <- "tsmodel.predict"
 par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8)
 plot(L, gradient_color = "orange", interval_color = "cadetblue", median_color = "black", median_type = 2, median_width = 1, 
      n_original = 100, main = "Kurtosis [AEX]", xlab = "", cex.main = 0.8)
+par(oldpar)
 ```
 
 To calculate the weighted portfolio moments we can use the `tsaggregate` method and similarly
@@ -166,6 +167,7 @@ class(L) <- "tsmodel.predict"
 par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8)
 plot(L, gradient_color = "orange", interval_color = "cadetblue", median_color = "black", median_type = 2, median_width = 1, 
      n_original = 100, main = "Portfolio Skewness", xlab = "", cex.main = 0.8)
+par(oldpar)
 ```
 
 ## Weighted Portfolio Distribution
@@ -198,6 +200,7 @@ matplot(cbind(as.numeric(port_f_moments[,3]), p_c_moments[,3]), type = "l", lty 
 grid()
 matplot(cbind(as.numeric(port_f_moments[,4]), p_c_moments[,4]), type = "l", lty = c(1,3), lwd = c(2, 2), col = c("grey","tomato1"), main = "Kurtosis")
 grid()
+par(oldpar)
 ```
 
 This provides for a code correctness check of the FFT approximation to inverting the characteristic
@@ -224,6 +227,7 @@ persp(x = 1:98, y = q_seq, z = q_surface,  col = col_palette, theta = 45,
       phi = 15, expand = 0.5, ltheta = 25, shade = 0.25, 
       ticktype = "simple", xlab = "Time", ylab = "Quantile", 
       zlab = "VaR", cex.axis = 0.8, main = "Value at Risk Prediction Surface")
+par(oldpar)
 ```
 
 We can also generate the probability integral transform of the weighted distribution
@@ -311,9 +315,11 @@ weighted_sigma <- sqrt(sapply(1:98, function(i) w %*% H[,,i] %*% w))
 shape <- unname(coef(dcc_mod)["shape"])
 simulated_var <- unname(apply(simulated_aggregate$mu, 2, quantile, 0.05))
 analytic_var <- qstd(0.05, mu = weighted_mu, sigma = weighted_sigma, shape = shape)
+par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8, cex.main = 0.8)
 plot(as.Date(p$forc_dates), simulated_var, type = "l", ylab = "", xlab = "", main = "Value at Risk [5%]", ylim = c(-0.039, -0.033))
 lines(as.Date(p$forc_dates), analytic_var, col = 2, lty = 2)
 legend("topright", c("Simulated","Analytic"), col = 1:2, lty = 1:2, bty = "n")
+par(oldpar)
 ```
 
 Note that the DCC dynamics do not have a closed form solution for the
@@ -381,7 +387,9 @@ For the Copula model we reply on the simulated distribution for all calculations
 p <- predict(cgarch_mod, h = 98, nsim = 5000)
 simulated_aggregate <- tsaggregate(p, weights = w, distribution = TRUE)
 simulated_var <- unname(apply(simulated_aggregate$mu, 2, quantile, 0.05))
+par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8, cex.main = 0.8)
 plot(as.Date(p$forc_dates), simulated_var, type = "l", ylab = "", xlab = "", main = "Value at Risk [5%]")
+par(oldpar)
 ```
 
 
@@ -473,10 +481,11 @@ arima_pred <- aperm(arima_pred, c(2, 3, 1))
 simulated_mean <- as.matrix(t(apply(arima_pred, 1, rowMeans)))
 colnames(simulated_mean) <- colnames(train)
 par(mfrow = c(3,2), mar = c(2,2,2,2))
-for(i in 1:5) {
+for (i in 1:5) {
   matplot(cbind(simulated_mean[,i], .predicted[,i]), type = "l", lty = c(1,3), lwd = c(2, 2), col = c("grey","tomato1"), ylab = "", xaxt = "n")
   grid()
 }
+par(oldpar)
 ```
 
 The simulated mean is as expected no different from the prediction mean of the ARIMA model.
@@ -491,8 +500,10 @@ sim_1a <- t(p$mu[,i,])
 sim_1b <- t(arima_pred[,i,])
 colnames(sim_1a) <- colnames(sim_1b) <- as.character(p$forc_dates)
 class(sim_1a) <- class(sim_1b) <- "tsmodel.distribution"
+par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8)
 plot(sim_1a, gradient_color = "whitesmoke", interval_color = "orange", median_color = "orange")
 plot(sim_1b, add = TRUE, gradient_color = "whitesmoke", interval_color = "steelblue", median_color = "steelblue", median_type = 2)
+par(oldpar)
 ```
 
 Next we visually inspect the pairwise correlations between the two methods:
@@ -505,8 +516,10 @@ colnames(sim_2a) <- colnames(sim_2b) <- as.character(p$forc_dates)
 class(sim_2a) <- class(sim_2b) <- "tsmodel.distribution"
 C_a <- sapply(1:25, function(i) cor(sim_1a[,i], sim_2a[,i]))
 C_b <- sapply(1:25, function(i) cor(sim_1b[,i], sim_2b[,i]))
+par(mar = c(2,2,1.1,1), pty = "m", cex.axis = 0.8, cex.main = 0.8)
 matplot(cbind(C_a, C_b), type = "l", lty = c(1,3), lwd = c(2, 2), col = c("grey","tomato1"), ylab = "", main = "Pairwise Correlation")
 grid()
+par(oldpar)
 ```
 
 As can be observed, both methods produce almost identical output.

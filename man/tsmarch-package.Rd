@@ -8,7 +8,7 @@
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-Feasible Multivariate Autoregressive Conditional Heteroscedasticity ('ARCH') models including Dynamic Conditional Correlation ('DCC'), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) \doi{10.1016/bs.host.2019.01.001}.
+Feasible Multivariate Generalized Autoregressive Conditional Heteroscedasticity (GARCH) models including Dynamic Conditional Correlation (DCC), Copula GARCH and Generalized Orthogonal GARCH with Generalized Hyperbolic distribution. A review of some of these models can be found in Boudt, Galanos, Payseur and Zivot (2019) \doi{10.1016/bs.host.2019.01.001}.
 }
 \seealso{
 Useful links:

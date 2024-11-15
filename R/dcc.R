@@ -863,6 +863,7 @@
     on.exit(par(oldpar))
     axis_names <- c(paste0(x$pair_names[1]," [t-1]"), paste0(x$pair_names[2]," [t-1]"))
     x1 <- drapecol(x$nisurface, col = topo.colors(100), NAcol = "white")
+    par(mar = c(1.5,1.5,2,1.5))
     persp(  x = x$axis,
             y = x$axis,
             z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,

@@ -512,17 +512,17 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     oldpar <- par(no.readonly = TRUE)
     on.exit(par(oldpar))
     heading <- paste0(toupper(x$model)," [",toupper(x$dynamics),"] News Impact ", upper_case_i(x$type,1,1)," Surface\n",x$pair_names[1],"[",x$factors[1],"]:",x$pair_names[2],"[",x$factors[2],"]")
-    layout(matrix(c(1,2,1,3), 2, 2, byrow = TRUE))
+    layout(matrix(c(1,1,2,1,1,3), 2, 3, byrow = TRUE))
     factors <- x$factors
     axis_names <- c(paste0("F_",factors[1]," [t-1]"), paste0("F_",factors[2]," [t-1]"))
     x1 <- drapecol(x$nisurface, col = topo.colors(100), NAcol = "white")
+    par(mar = c(1.5,1.5,2,1.5))
     persp(  x = x$axis,
             y = x$axis,
             z = x$nisurface,  col = x1, theta = 45, phi = 25, expand = 0.5,
             ltheta = 120, shade = 0.75, ticktype = "detailed", xlab = axis_names[1],
             ylab = axis_names[2], zlab = "",
             cex.axis = 0.7, cex.main = 0.8, main = heading)
-
     par(mar = c(2,2,2,2))
     cols_factor1 <- c("cadetblue","steelblue")
     barplot(x$A[factors,x$pairs[1]], col = cols_factor1, main = paste0(x$pair_names[1]," Factor Loadings"), cex.names = 0.7, cex.axis = 0.7, cex.lab = 0.7, names.arg = paste0("F_",factors),  cex.main = 0.7)
