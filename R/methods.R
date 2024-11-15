@@ -2308,6 +2308,7 @@ plot.tsmarch.newsimpact <- function(x, y = NULL, ...)
 #' time point and draw). This can then be passed to the \code{\link{dfft}}, \code{\link{pfft}} or
 #' \code{\link{qfft}} methods which create smooth distributional functions.
 #' @method tsconvolve gogarch.estimate
+#' @aliases tsconvolve
 #' @rdname tsconvolve
 #' @export
 #'

@@ -2,6 +2,7 @@
 % Please edit documentation in R/methods.R
 \name{tsconvolve.gogarch.estimate}
 \alias{tsconvolve.gogarch.estimate}
+\alias{tsconvolve}
 \alias{tsconvolve.gogarch.predict}
 \alias{tsconvolve.gogarch.simulate}
 \title{Convolution}

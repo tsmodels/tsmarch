@@ -35,13 +35,14 @@ knitr::opts_chunk$set(
 # Introduction {#sec-introduction}
 
 The `tsmarch` package represents a re-write and re-think of the models in 
-`rmgarch`. It is written using simpler S3 methods and classes, has a cleaner 
+[rmgarch](https://CRAN.R-project.org/package=rmgarch). It is written using 
+simpler S3 methods and classes, has a cleaner 
 code base, extensive documentation and unit tests, provides speed gains by 
 making use of parallelization in both R (via the `future` package) and in the 
-C++ code (via `RcppParallel` package), and works with the new univariate GARCH 
-package `tsgarch`.
+C++ code (via [RcppParallel](https://CRAN.R-project.org/package=RcppParallel) package), 
+and works with the new univariate GARCH package [tsgarch](https://CRAN.R-project.org/package=tsgarch).
 
-To to simplify usage, similar to the approach adopted in `tsgarch`, conditional
+To simplify usage, similar to the approach adopted in `tsgarch`, conditional
 mean dynamics are not included. Since the distributions are location/scale invariant,
 the series must be pre-filtered for conditional mean dynamics before submitting
 the data, but there is an option to pass the conditional_mean (`cond_mean`) as
@@ -49,7 +50,8 @@ an argument in both the setup specification, filtering, prediction and simulatio
 methods so that it is incorporated into the output of various methods at each
 step of the way. Alternatively, the user can location shift (re-center) the
 simulated predictive distribution matrix by the pre-calculated conditional 
-mean forecast.
+mean forecast, or pass the zero mean correlated predictive distribution 
+innovations as an input to the conditional mean prediction simulation dynamics.
 
 The nature of the models implemented allows for separable dynamics in estimation
 which means that individual series have univariate dynamics which can be estimated
@@ -119,7 +121,7 @@ of the conditional mean at time t for each series, $\varepsilon_t$ a vector of z
 residuals which have a multivariate Normal distribution with conditional covariance
 $\Sigma_t$, and $LL_t\left(\theta\right)$ is the log-likelihood at time $t$ given
 a parameter vector $\theta$ of univariate GARCH (or any other model) parameters. 
-The constant correlation matrix $R$ is usually approximated by it's sample counterpart as
+The constant correlation matrix $R$ is usually approximated by its sample counterpart as
 
 \begin{equation}
 R = \frac{1}{T}\sum\limits_{t=1}^{T}{z_t z_t'}
@@ -144,7 +146,7 @@ following proxy process :
 \begin{equation}
 \begin{aligned}
 Q_t &= \bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-j}z'_{t-j}-\bar Q\right)} +  \sum\limits_{j=1}^{p}{b_j\left(Q_{t-j}-\bar Q\right)}\\
- &= \left(1 -  \sum\limits_{j=1}^{q}{a_j} -  \sum\limits_{j=1}^{p}{b_j}\right)\bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-k}z'_{t-j}\right)} + \sum\limits_{j=1}^{p}{b_j Q_{t-j}}
+ &= \left(1 -  \sum\limits_{j=1}^{q}{a_j} -  \sum\limits_{j=1}^{p}{b_j}\right)\bar Q + \sum\limits_{j=1}^{q}{a_j\left(z_{t-j}z'_{t-j}\right)} + \sum\limits_{j=1}^{p}{b_j Q_{t-j}}
 \end{aligned}
 \label{eq:3}
 \end{equation}
@@ -161,7 +163,7 @@ R_t = \text{diag}\left(Q_t\right)^{-1/2}Q_t\text{diag}\left(Q_t\right)^{-1/2}
 Under the assumption that $\varepsilon_t\sim N\left(0,\Sigma_t\right)$, the log-likelihood is:
 \begin{equation}
 \begin{aligned}
-LL_t\left(\theta\right) &= -\frac{1}{2}\left(n \log\left(2\pi\right) + 2\log\left|D_t\right| + z'_t z_t\right) - \frac{1}{2}\left(z'_t z_t + \log\left|R_t\right| + z'_t R^{-1}_t z_t\right)\\
+LL_t\left(\theta\right) &= -\frac{1}{2}\left(n \log\left(2\pi\right) + 2\log\left|D_t\right| + z_t z'_t\right) - \frac{1}{2}\left(z_t z'_t + \log\left|R_t\right| + z'_t R^{-1}_t z_t\right)\\
  &= LL_{V,t}(\phi) + LL_{R,t}\left(\psi|\phi\right)
 \end{aligned}
 \label{eq:5}
@@ -285,7 +287,7 @@ dcc_modelspec(distribution = 'mvt')
 The copula approach is a more general approach which allows for the use of different marginal distributions for each series.
 In simple terms, the copula is a function which links the marginal distributions to the joint distribution by applying
 a transformation to the marginal residuals to make them uniformly distributed. The joint distribution is then obtained by
-applying the inverse distribution of the copula to the uniform marginals.
+applying the inverse distribution of the copula to the uniform margins.
 
 Specifically:
 
@@ -298,8 +300,8 @@ u_t & = C\left(F_1\left(z_{1,t}\right),\ldots,F_n\left(z_{n,t}\right)\right)\\
 \end{equation}
 
 where $F$ is the marginal distribution function, $F^{-1}$ is the inverse of the multivariate distribution function, 
-$C$ is the copula function, and $u_t$ is the vector of uniform marginals. The transformation of the margins
-is called the Probability Integral Transform (PIT). There are a number of ways to transform the marginals to uniform 
+$C$ is the copula function, and $u_t$ is the vector of uniform margins. The transformation of the margins
+is called the Probability Integral Transform (PIT). There are a number of ways to transform the margins to uniform 
 distributions, including a parametric transform (also called the Inference-Functions-For-Margins by @Joe1997), 
 using the empirical CDF (also called pseudo-likelihood and investigated by @Genest1995) and the semi-parametric 
 approach (see @Davison1990). All three approaches are implemented in the `tsmarch` package. The package implements
@@ -323,13 +325,13 @@ where
 \end{equation}
 
 with $u_{i,t} = F_{i,t}\left(\varepsilon_{i,t}|\phi_i \right)$ is the PIT transformation of each series by it's conditional distribution estimated in the first stage
-GARCH process by any choice of dynamic and distributions, $F_i^{-1}\left(u_{i,t}|\eta\right)$ represents the quantile transformation of the uniform marginals 
+GARCH process by any choice of dynamic and distributions, $F_i^{-1}\left(u_{i,t}|\eta\right)$ represents the quantile transformation of the uniform margins 
 subject to a common shape parameter of the multivariate Student Copula, and $f_t\left( F_i^{-1}\left(u_{1,t}|\eta\right), \ldots, F_i^{-1}\left(u_{n,t}|\eta\right) | R_t,\eta \right)$
 is the joint density of the Student Copula with shape parameter $\eta$ and correlation matrix $R_t$.
 
 Therefore, the log-likelihood is composed of essentially 3 parts: the first stage univariate models, the univariate PIT transformation and inversion given the Copula distribution and the second stage multivariate model.
 
-The correlation can be modeled as either constant or dynamic in the copula model. The dynamic correlation is modeled in the same way as the DCC model, but the residuals are transformed to uniform marginals before estimating the correlation. Appendix \ref{sec-appendix-correlation} provides a more detailed overview for the constant correlation case.
+The correlation can be modeled as either constant or dynamic in the copula model. The dynamic correlation is modeled in the same way as the DCC model, but the residuals are transformed to uniform margins before estimating the correlation. Appendix \ref{sec-appendix-correlation} provides a more detailed overview for the constant correlation case.
 
 Essentially, the difference between the standard DCC type model and the one with a Copula distribution involves
 the PIT transformation step, which is reflected in the inference (standard errors), forecasting and simulation 
@@ -399,11 +401,11 @@ where ${\epsilon^s}_t$ is a vector of standard Normal random variables, $\Lambda
 For the multivariate Student distribution, the draws for $z^s_t$ are generated as :
 
 \begin{equation}
-z^s_t =  E \Lambda^{1/2} \epsilon_t \sqrt{\frac{\nu}{W^s}}
+z^s_t =  E \Lambda^{1/2} {\epsilon^s}_t \sqrt{\frac{\nu}{W^s}}
 \label{eq:16}
 \end{equation}
 
-where $W^s$ is a random draw from a chi-squared distribution with $\nu$ degrees of freedom. For $\epsilon_t$, it is also possible to instead use the empirical standardized and de-correlated residuals, an option which is offered in the package.
+where $W^s$ is a random draw from a chi-squared distribution with $\nu$ degrees of freedom. For ${\epsilon^s}_t$, it is also possible to instead use the empirical standardized and de-correlated residuals, an option which is offered in the package.
 
 
 **Code Snippet**
@@ -463,7 +465,7 @@ instead the indirect DCC model (essentially a scalar BEKK) which models directly
 the conditional covariance matrix and forgoes univariate GARCH dynamics.
 
 @Aielli2013 also points out that the estimation of $Q_t$ as the empirical counterpart of the correlation matrix
-of $z_t$ is inconsistent since $E\left[z_t z_t\right] = E\left[R_t\right] \neq E\left[Q_t\right]$.
+of $z_t$ is inconsistent since $E\left[z_t z'_t\right] = E\left[R_t\right] \neq E\left[Q_t\right]$.
 They propose a DCC (cDCC) model which includes a corrective step which eliminates 
 this inconsistency, albeit at the cost of targeting which is not allowed.
 
@@ -501,8 +503,7 @@ A = \Sigma^{1/2}U
 where $\Sigma$ is the unconditional covariance matrix of the residuals and performs
 the role of de-correlating (whitening) the residuals prior to rotation (independence). It is
 at this juncture where dimensionality reduction may also be performed, by
-selecting the first $m \left(\le n\right)$ principal components of the residuals. In that case 
-$\varepsilon_t \approx \hat \varepsilon_t = A f_t$ since the dimensionality
+selecting the first $m \left(\le n\right)$ principal components of the residuals. In that case $\varepsilon_t \approx \hat \varepsilon_t = A f_t$ since the dimensionality
 reduced system only approximates the original residuals.
 
 The rotation matrix $U$ is calculated through the use of Independent Component 
@@ -533,14 +534,14 @@ The factor conditional variances, $h_{i,t}$ can be modeled as a GARCH-type proce
 The unconditional distribution of the factors is characterized by:
 
 \begin{equation}
-E[f_t] = \mathbf{0} \quad  E[f_t f_t'] = I_n
+E[f_t] = \mathbf{0} \quad  E[f_t f'_t] = I_n
 \label{eq:20}
 \end{equation}
 
 which, in turn, implies that:
 
 \begin{equation}
-E[\varepsilon_t] = \mathbf{0} \quad E[\varepsilon_t\varepsilon_t'] = A A'.
+E[\varepsilon_t] = \mathbf{0} \quad E[\varepsilon_t\varepsilon'_t] = A A'.
 \label{eq:21}
 \end{equation}
 
@@ -729,7 +730,7 @@ where $w_t$ is the vector of weights at time $t$. Using the vectorization operat
 $vec$ the weighted moments can be re-written compactly as:
 
 \begin{equation}
-\mu_k = \text{vec}\left(M_k\right)'\underbrace{(w_t \otimes \ldots \otimes w_t)}_{k \text{times}}
+\mu_k = \text{vec}\left(M_k\right)'\underbrace{(w_t \otimes \ldots \otimes w_t)}_{k \text{ times}}
 \label{eq:33}
 \end{equation}
 
