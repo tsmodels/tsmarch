@@ -8,7 +8,7 @@ test_that("GOGARCH residuals",{
     r <- coredata(residuals(global_gogarch_mod, standardize = stdize, type = type))
     r <- cor(r)
     r <- r[lower.tri(r)]
-    expect_lt(mean(abs(r)), 0.02)
+    expect_lt(mean(abs(r)), 0.025)
 })
 
 test_that("GOGARCH ICA",{

@@ -3,7 +3,7 @@
 #' @import tsmethods
 #' @import data.table
 #' @import methods
-#' @importFrom stats mahalanobis residuals fitted sigma printCoefmat simulate predict AIC BIC approxfun ar cov.wt cov2cor density dnorm ecdf integrate logLik median na.omit optim pnorm qnorm quantile rnorm stepfun vcov
+#' @importFrom stats mahalanobis residuals fitted sigma printCoefmat simulate predict AIC BIC runif approxfun ar cov.wt cov2cor density dnorm ecdf integrate logLik median na.omit optim pnorm qnorm quantile rnorm stepfun vcov
 #' @importFrom zoo na.fill coredata index is.zoo `coredata<-` as.zoo
 #' @importFrom tsgarch garch_modelspec newsimpact to_multi_estimate
 #' @importFrom xts xts as.xts is.xts merge.xts

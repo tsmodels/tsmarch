@@ -65,7 +65,7 @@ oldpar <- par(mfrow = c(1,1))
 
 
 ```{r gogarch_model}
-gogarch_mod <- gogarch_modelspec(train, distribution = "nig", model = "gjrgarch", components = 4) |> estimate()
+gogarch_mod <- gogarch_modelspec(train, distribution = "nig", ica = "radical", model = "gjrgarch", components = 4) |> estimate()
 summary(gogarch_mod)
 ```
 

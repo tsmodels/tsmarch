@@ -6,7 +6,7 @@
 #' @param model the GARCH model to use for each factor.
 #' @param order the GARCH model order.
 #' @param ica the Independent Component Analysis algorithm. Current only the
-#' RADICAL algorithm is available.
+#' RADICAL or FASTICA algorithms are available.
 #' @param components the number of components to extract in the pre-whitening
 #' phase,
 #' @param lambda_range for the generalized hyperbolic distribution, the range of
@@ -14,7 +14,8 @@
 #' @param shape_range for the generalized hyperbolic distribution, the range of
 #' the shape parameter (zeta).
 #' @param cond_mean an optional matrix of the conditional mean for the series.
-#' @param ... additional arguments passed to the \code{\link{radical}} function.
+#' @param ... additional arguments passed to the \code{\link{radical}} or \code{\link{fastica}}
+#' functions.
 #' @returns an object of class \dQuote{gogarch.spec}.
 #' @export
 gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "garch", order = c(1,1), ica = "radical",
@@ -23,7 +24,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
 {
 
     distribution <- match.arg(distribution[1], c("norm","nig","gh"))
-    ica <- match.arg(ica[1], "radical")
+    ica <- match.arg(ica[1], c("radical","fastica"))
     spec <- list()
     if (!is.xts(y)) stop("\ny must be an xts matrix.")
     nobs <- NROW(y)
@@ -53,7 +54,9 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
     series <- estimate <- NULL
     # run ICA
     L <- list()
-    ic <- radical(object$target$y, components = object$ica$components, demean = FALSE, trace = verbose, ...)
+    ic <- switch(object$ic$model,
+                 "radical" = radical(object$target$y, components = object$ica$components, demean = FALSE, trace = verbose, ...),
+                 "fastica" = fastica(object$target$y, components = object$ica$components, demean = FALSE, trace = verbose, ...))
     components <- ic$S
     # run GARCH model on components
     garch_model <- .estimate_gogarch_components(components, object)
@@ -106,7 +109,7 @@ gogarch_modelspec <- function(y, distribution = c("norm","nig","gh"), model = "g
         object$mu <- rbind(object$mu, mu)
     }
     y <- .check_y_filter(object, y = y)
-    new_S <- filter_radical(y, demean = FALSE, object$ica$W, mu = NULL)
+    new_S <- filter_ica(y, demean = FALSE, object$ica$W, mu = NULL)
     S <- rbind(object$ica$S, new_S)
     # filter y
     if (is.null(object$spec$target$original_size)) {

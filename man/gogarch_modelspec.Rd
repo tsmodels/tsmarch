@@ -28,7 +28,7 @@ normal, normal inverse gaussian or generalized hyperbolic distribution.}
 \item{order}{the GARCH model order.}
 
 \item{ica}{the Independent Component Analysis algorithm. Current only the
-RADICAL algorithm is available.}
+RADICAL or FASTICA algorithms are available.}
 
 \item{components}{the number of components to extract in the pre-whitening
 phase,}
@@ -41,7 +41,8 @@ the shape parameter (zeta).}
 
 \item{cond_mean}{an optional matrix of the conditional mean for the series.}
 
-\item{...}{additional arguments passed to the \code{\link{radical}} function.}
+\item{...}{additional arguments passed to the \code{\link{radical}} or \code{\link{fastica}}
+functions.}
 }
 \value{
 an object of class \dQuote{gogarch.spec}.

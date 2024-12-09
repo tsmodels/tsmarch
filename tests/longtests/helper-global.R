@@ -9,12 +9,13 @@ gogarch_sample_index <- 1:1600
 gogarch_filter_index <- 1608:1690
 data("globalindices", package = "tsmarch")
 globalindices <- as.xts(globalindices)
+ica_algorithm <- c("fastica","radical")[1]
 print("running long tests")
 n_series <- 6
-global_gogarch_spec <- gogarch_modelspec(globalindices[gogarch_sample_index,1:n_series], distribution = "gh", components = n_series, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
+global_gogarch_spec <- gogarch_modelspec(globalindices[gogarch_sample_index,1:n_series], ica = ica_algorithm, distribution = "gh", components = n_series, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
 global_gogarch_mod <- suppressWarnings(estimate(global_gogarch_spec))
 # dimensionality reduced
-global_gogarch_spec_dr <- gogarch_modelspec(globalindices[gogarch_sample_index,1:n_series], distribution = "gh", components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
+global_gogarch_spec_dr <- gogarch_modelspec(globalindices[gogarch_sample_index,1:n_series], ica = ica_algorithm, distribution = "gh", components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20))
 global_gogarch_mod_dr <- suppressWarnings(estimate(global_gogarch_spec_dr))
 
 
@@ -55,10 +56,10 @@ colnames(filtered) <- colnames(mu)
 filtered <- filtered[filter_index]
 
 
-spec_full <- gogarch_modelspec(res[gogarch_sample_index,1:n_series], distribution = "gh", components = n_series, lambda_range = c(-3, 3), shape_range = c(0.25, 20), cond_mean = coredata(mu))
+spec_full <- gogarch_modelspec(res[gogarch_sample_index,1:n_series], distribution = "gh", ica = ica_algorithm, components = n_series, lambda_range = c(-3, 3), shape_range = c(0.25, 20), cond_mean = coredata(mu))
 mod_full <- suppressWarnings(estimate(spec_full))
 
-spec_dr <- gogarch_modelspec(res[gogarch_sample_index,1:n_series], distribution = "gh", components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20), cond_mean = coredata(mu))
+spec_dr <- gogarch_modelspec(res[gogarch_sample_index,1:n_series], distribution = "gh", ica = ica_algorithm, components = 4, lambda_range = c(-3, 3), shape_range = c(0.25, 20), cond_mean = coredata(mu))
 mod_dr <- suppressWarnings(estimate(spec_dr))
 
 
