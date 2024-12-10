@@ -188,7 +188,7 @@ dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant"
 #' of the model (see details). Not applicable in the case of the GOGARCH model.
 #' @param trace whether to print tracing information for the GOGARCH model estimation.
 #' @param ... for the GOGARCH model, additional options passed to the \code{\link{radical}}
-#' function.
+#' or \code{\link{fastica}} functions.
 #' @returns An estimated object of one of either \dQuote{cgarch.estimate},
 #' \dQuote{dcc.estimate} or \dQuote{gogarch.estimate}.
 #' @details

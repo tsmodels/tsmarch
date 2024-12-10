@@ -14,7 +14,7 @@
 #' @param shape_range for the generalized hyperbolic distribution, the range of
 #' the shape parameter (zeta).
 #' @param cond_mean an optional matrix of the conditional mean for the series.
-#' @param ... additional arguments passed to the \code{\link{radical}} or \code{\link{fastica}}
+#' @param ... not used.
 #' functions.
 #' @returns an object of class \dQuote{gogarch.spec}.
 #' @export

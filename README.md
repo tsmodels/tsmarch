@@ -2,8 +2,8 @@
 # tsmarch <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 [![R-CMD-check](https://github.com/tsmodels/tsgarch/actions/workflows/rcmdcheck.yaml/badge.svg)](https://github.com/tsmodels/tsmarch/actions/workflows/rcmdcheck.yaml)
-[![Last-changedate](https://img.shields.io/badge/last%20change-2024--11--14-yellowgreen.svg)](/commits/master)
-[![packageversion](https://img.shields.io/badge/Package%20version-1.0.0-orange.svg?style=flat-square)](commits/master)
+[![Last-changedate](https://img.shields.io/badge/last%20change-2024--12--10-yellowgreen.svg)](/commits/master)
+[![packageversion](https://img.shields.io/badge/Package%20version-1.0.1-orange.svg?style=flat-square)](commits/master)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/tsmarch)](https://cran.r-project.org/package=tsmarch)
 
 # tsmarch
@@ -18,9 +18,18 @@ package [tsgarch](https://CRAN.R-project.org/package=tsgarch).
 
 ## Installation
 
-The package can be installed from CRAN (when published) or the
+The package can be installed from
+[CRAN](https://CRAN.R-project.org/package=tsmarch) or the
 [tsmodels](github.com/tsmodels/) github repo:
 
 ``` r
+install.package("tsmarch")
 remotes::install_github("tsmodels/tsmarch", dependencies = TRUE)
 ```
+
+The online vignette with a demo is available
+[here](https://www.nopredict.com/packages/tsmarch).
+
+Some notes on the ICA based algorithms used in the GOGARCH model are
+available in a blog
+[post](https://www.nopredict.com/blog/posts/2024-12-09-ica-benchmark/).

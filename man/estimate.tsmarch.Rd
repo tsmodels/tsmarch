@@ -41,7 +41,7 @@ package \dQuote{tsgarch} for the estimation of the independent factors.}
 of the model (see details). Not applicable in the case of the GOGARCH model.}
 
 \item{...}{for the GOGARCH model, additional options passed to the \code{\link{radical}}
-function.}
+or \code{\link{fastica}} functions.}
 
 \item{trace}{whether to print tracing information for the GOGARCH model estimation.}
 }

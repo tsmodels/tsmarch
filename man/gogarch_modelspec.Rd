@@ -41,7 +41,7 @@ the shape parameter (zeta).}
 
 \item{cond_mean}{an optional matrix of the conditional mean for the series.}
 
-\item{...}{additional arguments passed to the \code{\link{radical}} or \code{\link{fastica}}
+\item{...}{not used.
 functions.}
 }
 \value{
