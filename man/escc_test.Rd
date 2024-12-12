@@ -13,6 +13,8 @@ escc_test(x, order = c(1, 1), lags = 1, constant = FALSE, ...)
 
 \item{lags}{the number of lags to test for.}
 
+\item{constant}{whether to include a constant (mean) in the GARCH model estimation.}
+
 \item{...}{none.}
 }
 \value{

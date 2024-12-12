@@ -29,6 +29,7 @@ pvalue_format <- function(x) {
 #' @param x an xts matrix of stationary data.
 #' @param order the GARCH model order.
 #' @param lags the number of lags to test for.
+#' @param constant whether to include a constant (mean) in the GARCH model estimation.
 #' @param ... none.
 #' @returns An object of class \dQuote{tstest.escc} which has a print and
 #' as_flextable method.
@@ -54,6 +55,8 @@ pvalue_format <- function(x) {
 #'
 escc_test <- function(x, order = c(1,1), lags = 1, constant = FALSE, ...)
 {
+    parameter <- NULL
+    `Pr(>|t|)` <- NULL
     n <- NROW(x)
     m <- NCOL(x)
     if (is.null(colnames(x))) colnames(x) <- paste0("S_",1:n)
@@ -62,7 +65,7 @@ escc_test <- function(x, order = c(1,1), lags = 1, constant = FALSE, ...)
         return(g_mod)
     }, future.packages = "tsgarch")
     garch_model <- to_multi_estimate(garch_model)
-    names(garch_model) <- colnames(y)
+    names(garch_model) <- colnames(x)
     dcc_mod <- dcc_modelspec(garch_model, dynamics = "constant", distribution = "mvn") |> estimate()
     z <- coredata(residuals(dcc_mod, standardize = TRUE, type = "whitened"))
     outer_products <- NULL
