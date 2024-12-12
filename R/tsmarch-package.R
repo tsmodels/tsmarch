@@ -14,6 +14,7 @@
 #' @importFrom graphics grid layout lines par axis barplot contour hist image mtext persp points title abline box
 #' @importFrom future.apply future_lapply
 #' @importFrom future future
+#' @importFrom flextable flextable as_flextable set_caption add_footer_row add_footer_lines append_chunks as_chunk as_equation as_paragraph compose colformat_double set_header_labels padding bold align autofit hline width colformat_int
 #' @importFrom abind abind
 #' @importFrom shape drapecol
 #' @importFrom numDeriv hessian jacobian grad

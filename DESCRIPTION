@@ -8,7 +8,7 @@ Maintainer: Alexios Galanos <alexios@4dscape.com>
 Depends: R (>= 3.5.0), methods, tsmethods (>= 1.0.2)
 LinkingTo: Rcpp (>= 0.10.6), RcppArmadillo, RcppParallel, RcppBessel
 SystemRequirements: GNU make
-Imports: Rcpp, RcppParallel, tsgarch (>= 1.0.3), tsdistributions (>= 1.0.2), RcppBessel, Rsolnp, nloptr, numDeriv, abind, shape, Rdpack, xts, zoo, lubridate, sandwich, future.apply, future, stats, utils, data.table
+Imports: Rcpp, RcppParallel, tsgarch (>= 1.0.3), tsdistributions (>= 1.0.2), RcppBessel, Rsolnp, nloptr, flextable, numDeriv, abind, shape, Rdpack, xts, zoo, lubridate, sandwich, future.apply, future, stats, utils, data.table
 License: GPL-2
 Encoding: UTF-8
 LazyData: true

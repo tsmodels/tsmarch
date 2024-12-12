@@ -1,0 +1,112 @@
+---
+title: "Constant correlation test"
+author: "Alexios Galanos"
+date: "`r Sys.Date()`"
+output: 
+    rmarkdown::html_vignette:
+        css: custom.css
+        code_folding: show
+        toc: true
+link-citations: yes
+bibliography-style: apalike
+natbiboptions: round
+bibliography: tsmarch.bib
+vignette: >
+  %\VignetteIndexEntry{Constant correlation test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Background
+
+@Engle2001 proposed a test for constant correlation:
+
+$$
+H_0: R_t = \bar{R} \quad \forall \, t \in T
+$$
+
+against
+
+$$
+H_a: \text{vech}^u(R_t) = \text{vech}^u(\bar{R}) + \beta_1\text{vech}^u(R_{t-1}) + \beta_2\text{vech}^u(R_{t-2}) + \cdots + \beta_p\text{vech}^u(R_{t-p})
+$$
+
+where $\text{vech}^u$ is a modified $\text{vech}$ that only selects elements above the diagonal. 
+The testing procedure first estimates a constant correlation model, with first stage GARCH processes
+whose standardized residuals are whitened using the symmetric square root decomposition of the 
+matrix $\bar{R}$ (estimated in the second stage).
+
+Under the null of constant correlation, these residuals should be i.i.d. with a variance-covariance 
+matrix given by $I_k$, the identity matrix. Consider the artificial regressions of the outer 
+products of the residuals on a constant and their lags, in stacked form:
+
+$$
+Y_t = \text{vech}^u \left[ (\bar{R}^{-1/2} D_t^{-1} r_t)(\bar{R}^{-1/2} D_t^{-1} r_t)^\prime - I_k \right]
+$$
+
+where $\bar{R}^{-1/2} D_t^{-1} r_t$ is a $k \times 1$ vector of residuals jointly standardized 
+under the null, with $D_t$ the diagonal matrix of time varying standard deviations from 
+the first stage GARCH process. The (vector) autoregression with $s$ lags is given by:
+
+$$
+Y_t = \alpha + \beta_1 Y_{t-1} + \cdots + \beta_s Y_{t-s} + \eta_t
+$$
+
+Under the null, the intercept and all of the lag parameters in the model should be zero. 
+In order to estimate the test statistic, all that is necessary is to make the $T \times k$ 
+vector of outer-products for each univariate regressor and the $T \times s + 1$ matrix of regressors
+for each set of regressors. Then the parameters can be estimated by stacking the $k(k-1)/2$ 
+vector of regressands and regressors and performing a seemingly unrelated regression.
+
+The test can then be conducted as:
+
+$$
+\frac{\hat{\delta}^\prime X^\prime X \hat{\delta}}{\hat{\sigma}^2}
+$$
+
+which is asymptotically $\chi^2_{(s+1)}$, with $\hat{\delta}$ the estimated regression 
+parameters, $X$ the matrix of regressors (including the constant term) and $\hat\sigma^2$
+the variance of the regression residuals.^[adjusted for the number of lags $s$ and
+the constant term.]
+
+# Demo
+
+We use 10 global indices from the `globalindices` dataset to illustrate
+the test and output which has both a `print` and `as_flextable` method for
+nice printing.
+
+```{r mod_calc,highlight=TRUE}
+suppressMessages(library(tsmarch))
+suppressMessages(library(xts))
+data(globalindices)
+Sys.setenv(TZ = "UTC")
+train_set <- 1:1600
+series <- 1:10
+y <- as.xts(globalindices[, series])
+train <- y[train_set,]
+test <- escc_test(y, lags = 2, constant = TRUE)
+```
+
+```{r print_test,warning=FALSE,message=FALSE}
+as_flextable(test, include.decision = TRUE, use.symbols = TRUE, footnote.reference = TRUE)
+```
+
+Not surprisingly, the test rejects the null of constant correlation, though some caution
+should be exercised in the presence of structural breaks which may lead to invalid
+inferences.
+
+# Conclusion
+
+The constant correlation test is a simple test, but also quite restrictive in that
+it ignores structural breaks and is really only optimal within a specific class
+of time varying conditional correlations. More robust tests do exist^[see for example
+@Mccloud2011 who also provide an excellent review.], and may be included in the future.
+
+# References

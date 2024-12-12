@@ -8,3 +8,6 @@ and may be slow in those cases. This is a custom implementation which
 more closely follows the original Matlab code 
 (https://research.ics.aalto.fi/ica/fastica/) rather than the other 
 alternatives in R.
+
+* Added the constant correlation test of Engle and Sheppard and a flextable
+method for pretty printing.
