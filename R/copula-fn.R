@@ -26,7 +26,7 @@
             out <- data.table(parameter = paste0("alpha_",1), value = 0.0, lower = 0, upper = 0, estimate = 0, scale = 1, group = "alpha", equation = "[DCC]", symbol = paste0("\\alpha_",1))
         }
         if (order[2] > 0) {
-            tmp <- data.table(parameter = paste0("beta_",1:order[1]), value = 0.8, lower = 0, upper = 1, estimate = ifelse(dynamics == "constant", 0, 1), scale = 1, group = "beta",  equation = "[DCC]", symbol = paste0("\\beta_",1:order[2]))
+            tmp <- data.table(parameter = paste0("beta_",1:order[2]), value = 0.8, lower = 0, upper = 1, estimate = ifelse(dynamics == "constant", 0, 1), scale = 1, group = "beta",  equation = "[DCC]", symbol = paste0("\\beta_",1:order[2]))
         } else{
             tmp <- data.table(parameter = paste0("beta_",1), value = 0.0, lower = 0, upper = 0, estimate = 0, scale = 1, group = "beta", equation = "[DCC]", symbol = paste0("\\alpha_",1))
         }

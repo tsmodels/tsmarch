@@ -1,3 +1,8 @@
+# tsmarch 1.0.2
+
+* Fix to DCC model simulation when order > 1.
+* Bump requirement for R > 4.1.0 (required by tsgarch)
+
 # tsmarch 1.0.1
 
 * Small fixes to RADICAL algorithm.

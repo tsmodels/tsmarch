@@ -436,8 +436,8 @@
 {
     maxpq <- max(object$spec$dynamics$order)
     n_series <- object$spec$n_series
-    Qinit <- array(0, dim = c(n_series, n_series, min(1,maxpq)))
-    Zinit <- matrix(0, ncol = n_series, nrow = min(1,maxpq))
+    Qinit <- array(0, dim = c(n_series, n_series, max(1,maxpq)))
+    Zinit <- matrix(0, ncol = n_series, nrow = max(1,maxpq))
     if (maxpq > 0) {
         if (!is.null(Q_init)) {
             if (!all.equal(dim(Q_init), dim(Qinit))) stop("\nQ_init must be an array of size (n_series, n_series, maxpq)")
@@ -462,9 +462,7 @@
         } else {
             Z <- residuals(object, standardize = TRUE)
             if (init_method == "start") {
-                for (i in 1:maxpq) {
-                    Zinit[i, ] <- matrix(0, ncol = n_series, nrow = maxpq)
-                }
+                Zinit[1:maxpq, ] <- matrix(0, ncol = n_series, nrow = maxpq)
             } else if (init_method == "end") {
                 N <- NROW(Z)
                 for (i in 1:maxpq) {
