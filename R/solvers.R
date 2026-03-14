@@ -2,15 +2,16 @@
 {
     switch(solver,
            "solnp" = sol$pars,
+           "csolnp" = sol$pars,
            "nloptr" = sol$solution,
            "optim" = sol$par)
-
 }
 
 .default_options <- function(solver, control = list(trace = 1))
 {
     control <- switch(solver,
                       "solnp" = .solnp_defaults(control),
+                      "csolnp" = .csolnp_defaults(control),
                       "nloptr" = .nloptr_defaults(control),
                       "optim" = .lbfgsb_defaults(control))
 }
@@ -46,11 +47,22 @@
     return(control)
 }
 
+.csolnp_defaults <- function(control)
+{
+    if (is.null(control$trace)) control$trace <- 0
+    if (is.null(control$rho)) control$rho <- 1.0
+    if (is.null(control$max_iter)) control$max_iter <- 400
+    if (is.null(control$min_iter)) control$min_iter <- 600
+    if (is.null(control$tol)) control$tol <- 1e-8
+    return(control)
+}
+
 
 .solver_extract_solution <- function(sol, solver = "solnp")
 {
     switch(solver,
            "solnp" = sol$values[length(sol$values)],
+           "csolnp" = sol$objective,
            "nloptr" = sol$objective,
            "optim" = sol$value)
 }
@@ -61,6 +73,10 @@
         sol <- try(solnp(pars = pars, fun = fun, ineqfun = arglist$inequality_cons,
                          ineqLB = -1.0, ineqUB = 0.0, LB = lower, UB = upper,
                          control = control, arglist = arglist), silent = TRUE)
+    } else if (solver == "csolnp") {
+            sol <- try(csolnp(pars = pars, fn = fun, ineq_fn = arglist$inequality_cons,
+                             ineq_lower = -1.0, ineq_upper = 0.0, lower = lower, upper = upper,
+                             control = control, arglist = arglist), silent = TRUE)
     } else if (solver == "nloptr") {
         sol <- try(nloptr(x0 = pars, eval_f = fun, eval_grad_f = arglist$grad,
                           lb = lower, ub = upper, eval_g_ineq = arglist$inequality_cons,
@@ -75,6 +91,10 @@
         sol <- try(solnp(pars = pars, fun = fun, ineqfun = arglist$inequality_cons,
                          LB = lower, UB = upper,
                          control = control, arglist = arglist), silent = TRUE)
+    } else if (solver == "csolnp") {
+        sol <- try(csolnp(pars = pars, fn = fun, ineq_fn = arglist$inequality_cons,
+                          ineq_lower = -1.0, ineq_upper = 0.0, lower = lower, upper = upper,
+                          control = control, arglist = arglist), silent = TRUE)
     } else if (solver == "nloptr") {
         sol <- try(nloptr(x0 = pars, eval_f = fun, eval_grad_f = arglist$grad,
                           lb = lower, ub = upper, opts = control,

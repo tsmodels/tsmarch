@@ -2,6 +2,7 @@
 
 * Fix to DCC model simulation when order > 1.
 * Bump requirement for R > 4.1.0 (required by tsgarch)
+* Fix to Rf_error prompted from Rcpp team
 
 # tsmarch 1.0.1
 

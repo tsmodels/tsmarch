@@ -540,7 +540,7 @@ Rcpp::List dcc_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
         } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(Rt, ztmp);
         } else {
-            Rf_error("dccsim: unknown distribution");
+            (Rf_error)("dccsim: unknown distribution");
         }
         AsyZ.row(i) = matrix_sign(Z.row(i)) % Z.row(i);
     }
@@ -567,7 +567,7 @@ Rcpp::List dcc_constant_simulate(const double shape, const arma::mat R, const ar
         } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(R, ztmp);
         } else {
-            Rf_error("cgarchsim: unknown distribution");
+            (Rf_error)("cgarchsim: unknown distribution");
         }
     }
     List L = List::create(Named("R") = R, _("Z") = Z, _("chisqrv") = chisqrv);

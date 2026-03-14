@@ -64,7 +64,7 @@ arma::mat pit_transform(arma::mat u, const double shape, Rcpp::String distributi
             z.col(i) = vqstd(u.col(i), shape);
         }
     } else{
-        Rf_error("pit_transform: unknown distribution");
+        (Rf_error)("pit_transform: unknown distribution");
     }
     return z;
 }
@@ -556,7 +556,7 @@ Rcpp::List copula_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
         } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(Rt, ztmp);
         } else {
-            Rf_error("cgarchsim: unknown distribution");
+            (Rf_error)("cgarchsim: unknown distribution");
         }
         AsyZ.row(i) = matrix_sign(Z.row(i)) % Z.row(i);
     }
@@ -566,7 +566,7 @@ Rcpp::List copula_dynamic_simulate(const arma::vec alpha, const arma::vec gamma,
     } else if (distribution == "mvt") {
         U = mpstd(Z, shape);
     } else {
-        Rf_error("cgarchsim: unknown distribution");
+        (Rf_error)("cgarchsim: unknown distribution");
     }
     if (exc > 0) {
         R.shed_slices(0, exc - 1);
@@ -592,7 +592,7 @@ Rcpp::List copula_constant_simulate(const double shape, const arma::mat R, const
         } else if (distribution == "mvn") {
             Z.row(i) = rmvnorm(R, ztmp);
         } else {
-            Rf_error("cgarchsim: unknown distribution");
+            (Rf_error)("cgarchsim: unknown distribution");
         }
     }
     arma::mat U = arma::zeros(arma::size(Z));
@@ -601,7 +601,7 @@ Rcpp::List copula_constant_simulate(const double shape, const arma::mat R, const
     } else if (distribution == "mvt") {
         U = mpstd(Z, shape);
     } else {
-        Rf_error("cgarchsim: unknown distribution");
+        (Rf_error)("cgarchsim: unknown distribution");
     }
     List L = List::create(Named("R") = R, _("Z") = Z, _("U") = U, _("chisqrv") = chisqrv);
     return L;

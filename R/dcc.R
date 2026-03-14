@@ -191,7 +191,7 @@
 {
     elapsed <- Sys.time()
     estimate <- NULL
-    solver <- match.arg(solver[1], c("solnp","nloptr"))
+    solver <- match.arg(solver[1], c("solnp","nloptr","csolnp"))
     arglist <- list()
     dcc_env <- new.env(hash = TRUE)
     arglist$dcc_env <- dcc_env
