@@ -475,6 +475,7 @@
     # on the original data size
     elapsed <- Sys.time()
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -577,6 +578,7 @@
     elapsed <- Sys.time()
     group <- NULL
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -663,6 +665,7 @@
     if (!is.null(seed)) set.seed(seed)
     init_method <- match.arg(init_method, c("start", "end"))
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     group <- NULL
     Z <- object$copula_residuals
@@ -761,6 +764,7 @@
     parameter <- NULL
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     init_method <- match.arg(init_method, c("start", "end"))
     h <- h + burn
@@ -839,6 +843,7 @@
     init_method <- "end"
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     group <- NULL
     Z <- object$copula_residuals
@@ -944,6 +949,7 @@
     shape <- object$parmatrix[group == "shape"]$value
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     group <- NULL
     Z <- object$copula_residuals

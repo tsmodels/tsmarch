@@ -8,13 +8,12 @@ Maintainer: Alexios Galanos <alexios@4dscape.com>
 Depends: R (>= 4.1.0), methods, tsmethods (>= 1.0.2)
 LinkingTo: Rcpp (>= 1.1.1), RcppArmadillo, RcppParallel, RcppBessel
 SystemRequirements: GNU make
-Imports: Rcpp, RcppParallel, tsgarch (>= 1.0.4), tsdistributions (>= 1.0.3), RcppBessel, Rsolnp (>= 2.0.0), nloptr, flextable, numDeriv, abind, shape, Rdpack, xts, zoo, lubridate, sandwich, future.apply, future, stats, utils, data.table
+Imports: Rcpp, RcppParallel, tsgarch (>= 1.0.5), tsdistributions (>= 1.0.3), RcppBessel, Rsolnp (>= 2.0.0), nloptr, flextable, numDeriv, abind, shape, Rdpack, xts, zoo, lubridate, sandwich, future.apply, future, stats, utils, data.table
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
 BugReports: https://github.com/tsmodels/tsmarch/issues
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
 ByteCompile: true
 URL: https://github.com/tsmodels/tsmarch, https://www.nopredict.com
 RdMacros: Rdpack
@@ -25,3 +24,4 @@ Suggests:
     tstests
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

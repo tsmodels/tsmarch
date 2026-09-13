@@ -57,7 +57,10 @@ use the implied periodicity of the data to generate a regular sequence of dates
 after the last available date in the data.}
 
 \item{cond_mean}{an optional matrix (h x n_series) of the predicted conditional
-mean for the series which is used to recenter the simulated predictive distribution.}
+mean for the series which is used to recenter the simulated predictive distribution.
+For the DCC and Copula GARCH models this is only available when every first
+stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+conditional mean is taken from the first stage models automatically.}
 
 \item{seed}{an integer that will be used in a call to set.seed before simulating.}
 

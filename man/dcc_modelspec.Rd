@@ -24,7 +24,10 @@ correlation models.}
 \item{distribution}{the multivariate distribution. If using the \dQuote{mvt},
 then the first stage univariate models should use the normal distribution.}
 
-\item{cond_mean}{an optional matrix of the conditional mean for the series.}
+\item{cond_mean}{an optional matrix of the conditional mean for the series.
+This is only available when every first stage model uses \code{arma = c(0,0)};
+with ARMA first stage models the conditional mean is taken from the first
+stage models automatically.}
 
 \item{...}{not currently used.}
 }

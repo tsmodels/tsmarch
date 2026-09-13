@@ -88,9 +88,13 @@
     new_fit <- lapply(1:n, function(i){
         newf <- spec$univariate[[i]]
         newf$parmatrix <- pmatrix_spec[[i]]
-        maxpq <- max(newf$spec$model$order)
-        newf$sigma <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$sigma
+        arma <- newf$spec$model$arma
+        if (is.null(arma)) arma <- c(0,0)
+        maxpq <- max(newf$spec$model$order, arma)
+        rep_i <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)
+        newf$sigma <- rep_i$sigma
         if (maxpq > 0) newf$sigma <- newf$sigma[-c(1:maxpq)]
+        if (sum(arma) > 0) newf$conditional_mu <- tail(rep_i$conditional_mean, length(newf$sigma))
         newf$loglik <- spec$univariate[[i]]$tmb$fn(pmatrix_spec[[i]][estimate == 1]$value)
         return(newf)
     })
@@ -116,10 +120,14 @@
     new_fit <- lapply(1:n, function(i){
         newf <- spec$univariate[[i]]
         newf$parmatrix <- pmatrix_spec[[i]]
-        maxpq <- max(newf$spec$model$order)
-        newf$sigma <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$sigma
+        arma <- newf$spec$model$arma
+        if (is.null(arma)) arma <- c(0,0)
+        maxpq <- max(newf$spec$model$order, arma)
+        rep_i <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)
+        newf$sigma <- rep_i$sigma
         if (maxpq > 0) newf$sigma <- newf$sigma[-c(1:maxpq)]
-        newf$llvec <- -1 * log(spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$ll_vector)
+        if (sum(arma) > 0) newf$conditional_mu <- tail(rep_i$conditional_mean, length(newf$sigma))
+        newf$llvec <- -1 * log(rep_i$ll_vector)
         return(newf)
     })
     new_fit <- to_multi_estimate(new_fit)
@@ -234,9 +242,13 @@
     new_fit <- lapply(1:n, function(i){
         newf <- spec$univariate[[i]]
         newf$parmatrix <- pmatrix_spec[[i]]
-        maxpq <- max(newf$spec$model$order)
-        newf$sigma <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$sigma
+        arma <- newf$spec$model$arma
+        if (is.null(arma)) arma <- c(0,0)
+        maxpq <- max(newf$spec$model$order, arma)
+        rep_i <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)
+        newf$sigma <- rep_i$sigma
         if (maxpq > 0) newf$sigma <- newf$sigma[-c(1:maxpq)]
+        if (sum(arma) > 0) newf$conditional_mu <- tail(rep_i$conditional_mean, length(newf$sigma))
         newf$loglik <- spec$univariate[[i]]$tmb$fn(pmatrix_spec[[i]][estimate == 1]$value)
         return(newf)
     })
@@ -263,10 +275,14 @@
     new_fit <- lapply(1:n, function(i){
         newf <- spec$univariate[[i]]
         newf$parmatrix <- pmatrix_spec[[i]]
-        maxpq <- max(newf$spec$model$order)
-        newf$sigma <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$sigma
+        arma <- newf$spec$model$arma
+        if (is.null(arma)) arma <- c(0,0)
+        maxpq <- max(newf$spec$model$order, arma)
+        rep_i <- spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)
+        newf$sigma <- rep_i$sigma
         if (maxpq > 0) newf$sigma <- newf$sigma[-c(1:maxpq)]
-        newf$llvec <- -1 * log(spec$univariate[[i]]$tmb$report(pmatrix_spec[[i]][estimate == 1]$value)$ll_vector)
+        if (sum(arma) > 0) newf$conditional_mu <- tail(rep_i$conditional_mean, length(newf$sigma))
+        newf$llvec <- -1 * log(rep_i$ll_vector)
         return(newf)
     })
     new_fit <- to_multi_estimate(new_fit)

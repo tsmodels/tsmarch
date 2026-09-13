@@ -297,6 +297,7 @@
     # on the original data size
     elapsed <- Sys.time()
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -392,6 +393,7 @@
     elapsed <- Sys.time()
     group <- NULL
     if (!is.xts(y)) stop("\ny must be an xts object.")
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -470,6 +472,7 @@
     init_method <- match.arg(init_method, c("start", "end"))
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
     group <- NULL
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
@@ -559,6 +562,7 @@
     parameter <- NULL
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     init_method <- match.arg(init_method, c("start", "end"))
     R <- object$R
@@ -628,6 +632,7 @@
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
     group <- NULL
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
@@ -730,6 +735,7 @@
     shape <- object$parmatrix[group == "shape"]$value
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     group <- NULL
     Z <- residuals(object, standardize = TRUE)
@@ -887,6 +893,7 @@
     }
     init_method <- "end"
     group <- NULL
+    .check_cond_mean_arma(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
     Z <- residuals(object, standardize = TRUE)
     R <- tscor(object)
@@ -986,7 +993,13 @@
         H_predict <- H_predict[,,(maxpq + 1):(maxpq + h)]
         R_predict <- R_predict[,,(maxpq + 1):(maxpq + h)]
     }
-    out <- list(mu = cond_mean, H = H_predict, R = R_predict, Z = Z,
+    if (.has_arma_dynamics(object$spec$univariate)) {
+        mu <- do.call(cbind, lapply(garch_predictions, function(x) coredata(x$mean)))
+        colnames(mu) <- object$spec$series_names
+    } else {
+        mu <- cond_mean
+    }
+    out <- list(mu = mu, H = H_predict, R = R_predict, Z = Z,
                 n_series = n_series, h = h,
                 seed = seed, series_names = names(object$spec$univariate),
                 model = object$spec$dynamics$model, forc_dates = forc_dates)

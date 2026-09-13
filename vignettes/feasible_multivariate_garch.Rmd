@@ -42,16 +42,25 @@ making use of parallelization in both R (via the `future` package) and in the
 C++ code (via [RcppParallel](https://CRAN.R-project.org/package=RcppParallel) package), 
 and works with the new univariate GARCH package [tsgarch](https://CRAN.R-project.org/package=tsgarch).
 
-To simplify usage, similar to the approach adopted in `tsgarch`, conditional
-mean dynamics are not included. Since the distributions are location/scale invariant,
-the series must be pre-filtered for conditional mean dynamics before submitting
-the data, but there is an option to pass the conditional_mean (`cond_mean`) as
-an argument in both the setup specification, filtering, prediction and simulation
-methods so that it is incorporated into the output of various methods at each
-step of the way. Alternatively, the user can location shift (re-center) the
-simulated predictive distribution matrix by the pre-calculated conditional 
-mean forecast, or pass the zero mean correlated predictive distribution 
-innovations as an input to the conditional mean prediction simulation dynamics.
+For the conditional mean dynamics, the DCC and Copula GARCH models offer two
+mutually exclusive workflows. The first is to jointly estimate ARMA-GARCH
+dynamics in the first stage by passing an `arma` order to
+`garch_modelspec` (from `tsgarch`), in which case the resulting conditional
+mean is automatically propagated through the multivariate model's
+specification, filtering, prediction and simulation methods. The second is to
+pre-filter the series for conditional mean dynamics outside the system (since
+the distributions are location/scale invariant) and pass the conditional mean
+(`cond_mean`) as an argument in the specification, filtering, prediction and
+simulation methods so that it is incorporated into the output of various
+methods at each step of the way; this requires all first stage models to use
+`arma = c(0,0)`. The two workflows cannot be mixed: `cond_mean` is rejected
+whenever any first stage model includes ARMA dynamics. Alternatively, the user
+can location shift (re-center) the simulated predictive distribution matrix by
+a pre-calculated conditional mean forecast, or pass the zero mean correlated
+predictive distribution innovations as an input to the conditional mean
+prediction simulation dynamics. For the GOGARCH model, only the external
+pre-filtering approach is available since the first stage models are estimated
+on latent independent components rather than the original series.
 
 The nature of the models implemented allows for separable dynamics in estimation
 which means that individual series have univariate dynamics which can be estimated

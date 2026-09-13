@@ -1,3 +1,16 @@
+# tsmarch 1.0.3
+
+* Added support for joint ARMA-GARCH first stage models in the DCC and Copula
+GARCH models, with the conditional mean propagated to the joint distribution
+(estimation, filtering, prediction and simulation).
+* The `cond_mean` argument is now mutually exclusive with first stage ARMA
+dynamics at the model level: if any first stage series uses `arma`, supplying
+`cond_mean` raises an error in the specification, filter, simulate and predict
+methods.
+* Minimum required version of tsgarch raised to 1.0.5.
+* Fixed the univariate pre-sample trim length in the partitioned hessian/score
+calculation when the ARMA order exceeds the GARCH order.
+
 # tsmarch 1.0.2
 
 * Fix to DCC model simulation when order > 1.

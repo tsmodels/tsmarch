@@ -27,14 +27,18 @@ knitr::opts_chunk$set(
 # Introduction
 
 
-All models in the `tsmarch` package assume as input a zero-mean time series of returns, 
-which means that conditional mean filtration should be performed outside the package.
-However, all methods provide an argument to pass the already estimated conditional
-mean (`cond_mean`) which takes care of the conditional distribution centering, 
-particularly during the prediction step, otherwise the user can use the simulated
-distribution of innovations as an input to the conditional mean dynamics simulation.
-Details of how to work with conditional mean dynamics is available in another
-vignette. For this demo, we simply center the data by their mean.
+All models in the `tsmarch` package assume as input a zero-mean time series of returns.
+For the DCC and Copula GARCH models, conditional mean dynamics can either be
+estimated jointly with the GARCH dynamics in the first stage by passing an
+`arma` order to `garch_modelspec`, or performed outside the package with the
+already estimated conditional mean passed via the `cond_mean` argument (these
+two options are mutually exclusive). For the GOGARCH model only the external
+approach is available. The `cond_mean` argument takes care of the conditional
+distribution centering, particularly during the prediction step, otherwise the
+user can use the simulated distribution of innovations as an input to the
+conditional mean dynamics simulation. Details of how to work with conditional
+mean dynamics is available in another vignette. For this demo, we simply center
+the data by their mean.
 
 
 ```{r mod_calc,highlight=TRUE}
@@ -397,20 +401,26 @@ par(oldpar)
 # Conditional Mean Dynamics
 
 We briefly address in this section the question of how to handle conditional
-mean dynamics. There are effectively 2 approaches which are available for the
+mean dynamics. There are effectively 3 approaches which are available for the
 user:
 
-1. Pass in the `cond_mean` at every stage of the analysis 
+1. For the DCC and Copula GARCH models, include ARMA dynamics directly in the
+first stage `garch_modelspec` and let the conditional mean propagate
+automatically through all methods (in which case `cond_mean` cannot be used).
+2. Pass in the `cond_mean` at every stage of the analysis 
 (i.e. estimation, prediction, filtering, simulation etc) and the underlying
-code will take care of re-centering the simulated distributions.
-2. Do not pass anything for the `cond_mean` but then take the predicted
+code will take care of re-centering the simulated distributions. This requires
+that all first stage models use `arma = c(0,0)` and is the only option for the
+GOGARCH model.
+3. Do not pass anything for the `cond_mean` but then take the predicted
 simulated zero mean correlated residuals use them as inputs to the prediction 
 method of the conditional mean dynamics.
 
-Whilst the second method may be preferred, not many packages have either an
+Whilst the third method may be preferred, not many packages have either an
 option for generating a simulated predictive distribution or taking an input
 of a pre-created matrix of correlated residuals. In the next section we
-illustrate both approaches.
+illustrate the external approaches, followed by the native first stage
+ARMA-GARCH approach.
 
 
 ## Method 1: Conditional Mean Re-centering
@@ -523,3 +533,29 @@ par(oldpar)
 ```
 
 As can be observed, both methods produce almost identical output.
+
+## First Stage ARMA-GARCH
+
+For the DCC and Copula GARCH models, conditional mean dynamics can instead be
+estimated jointly with the GARCH dynamics in the first stage by passing an
+`arma` order to `garch_modelspec`. The resulting conditional mean is then
+propagated automatically through the specification, filtering, prediction and
+simulation methods, and no `cond_mean` argument is needed (or allowed):
+
+```{r}
+garch_model_arma <- lapply(1:5, function(i) {
+  garch_modelspec(train[,i], model = "gjrgarch", arma = c(1,0)) |> estimate(keep_tmb = TRUE)
+})
+garch_model_arma <- to_multi_estimate(garch_model_arma)
+names(garch_model_arma) <- colnames(train)
+dcc_mod_arma <- dcc_modelspec(garch_model_arma, dynamics = "adcc", distribution = "mvt") |> estimate()
+all.equal(coredata(fitted(dcc_mod_arma)), coredata(fitted(garch_model_arma)))
+```
+
+The `fitted` method now returns the first stage ARMA conditional means. Passing
+a custom `cond_mean` in this case raises an error, since the two approaches
+are mutually exclusive at the model level:
+
+```{r}
+try(dcc_modelspec(garch_model_arma, dynamics = "adcc", cond_mean = .fitted))
+```

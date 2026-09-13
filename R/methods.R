@@ -26,6 +26,9 @@ cgarch_modelspec <- function(object, ...)
 #' @param constant_correlation the constant correlation estimator to use. In the
 #' case of the \dQuote{mvt} copula, only Kendall's tau is a valid choice.
 #' @param cond_mean an optional matrix of the conditional mean for the series.
+#' This is only available when every first stage model uses \code{arma = c(0,0)};
+#' with ARMA first stage models the conditional mean is taken from the first
+#' stage models automatically.
 #' @param ... additional arguments passed to the \code{\link[tsdistributions]{spd_modelspec}}
 #' function in the case of the \dQuote{spd} transformation.
 #' @returns an object of class \dQuote{cgarch.spec}.
@@ -40,6 +43,7 @@ cgarch_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("consta
                                         constant_correlation = c("pearson", "kendall","spearman"),
                                         cond_mean = NULL, ...)
 {
+    .check_cond_mean_arma(object, cond_mean)
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
     transformation <- match.arg(transformation[1], c("parametric","empirical","spd"))
     copula <- match.arg(copula[1], c("mvn","mvt"))
@@ -124,6 +128,9 @@ dcc_modelspec <- function(object, ...)
 #' @param distribution the multivariate distribution. If using the \dQuote{mvt},
 #' then the first stage univariate models should use the normal distribution.
 #' @param cond_mean an optional matrix of the conditional mean for the series.
+#' This is only available when every first stage model uses \code{arma = c(0,0)};
+#' with ARMA first stage models the conditional mean is taken from the first
+#' stage models automatically.
 #' @param ... not currently used.
 #' @returns an object of class \dQuote{dcc.spec}.
 #' @method dcc_modelspec tsgarch.multi_estimate
@@ -135,6 +142,7 @@ dcc_modelspec.tsgarch.multi_estimate <- function(object, dynamics = c("constant"
                                         distribution = c("mvn","mvt"),
                                         cond_mean = NULL, ...)
 {
+    .check_cond_mean_arma(object, cond_mean)
     dynamics <- match.arg(dynamics[1], c("constant","dcc","adcc"))
     distribution <- match.arg(distribution[1], c("mvn","mvt"))
     spec <- list()
@@ -263,6 +271,9 @@ estimate.gogarch.spec <- function(object, trace = FALSE, ...)
 #' @param y an xts matrix of new values to filter.
 #' @param newxreg not used in these models.
 #' @param cond_mean an optional matrix of the filtered conditional mean values.
+#' For the DCC and Copula GARCH models this is only available when every first
+#' stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+#' conditional mean is taken from the first stage models automatically.
 #' @param update whether to update certain values using the most recent information
 #' less than the new data (see details).
 #' @param ... additional arguments for future expansion.
@@ -348,6 +359,9 @@ tsfilter.gogarch.estimate <- function(object, y = NULL,  newxreg = NULL, cond_me
 #' samples from the whitened innovations of the fitted model.
 #' @param cond_mean an optional matrix (h x n_series) of the simulated conditional
 #' mean for the series which is used to recenter the simulated distribution.
+#' For the DCC and Copula GARCH models this is only available when every first
+#' stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+#' conditional mean is taken from the first stage models automatically.
 #' @param ... no additional arguments currently supported.
 #' @details
 #' Part of the code makes use of parallel functionality via
@@ -423,6 +437,9 @@ simulate.gogarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bu
 #' after the last available date in the data.
 #' @param cond_mean an optional matrix (h x n_series) of the predicted conditional
 #' mean for the series which is used to recenter the simulated predictive distribution.
+#' For the DCC and Copula GARCH models this is only available when every first
+#' stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+#' conditional mean is taken from the first stage models automatically.
 #' @param ... no additional arguments currently supported.
 #' @details
 #' For the Copula GARCH model, the prediction is based on simulation due to the

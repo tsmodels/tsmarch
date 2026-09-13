@@ -74,7 +74,10 @@ uses the last values of the estimated model to initialize the recursion. In
 the constant correlation case, only the the GARCH initialization is relevant.}
 
 \item{cond_mean}{an optional matrix (h x n_series) of the simulated conditional
-mean for the series which is used to recenter the simulated distribution.}
+mean for the series which is used to recenter the simulated distribution.
+For the DCC and Copula GARCH models this is only available when every first
+stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+conditional mean is taken from the first stage models automatically.}
 
 \item{sim_method}{white noise method for generating random sample for the
 multivariate distribution. The default \dQuote{parametric} samples random

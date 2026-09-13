@@ -37,7 +37,10 @@
 \item{update}{whether to update certain values using the most recent information
 less than the new data (see details).}
 
-\item{cond_mean}{an optional matrix of the filtered conditional mean values.}
+\item{cond_mean}{an optional matrix of the filtered conditional mean values.
+For the DCC and Copula GARCH models this is only available when every first
+stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+conditional mean is taken from the first stage models automatically.}
 
 \item{...}{additional arguments for future expansion.}
 }

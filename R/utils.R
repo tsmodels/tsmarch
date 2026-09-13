@@ -457,6 +457,30 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
     }
 }
 
+.arma_orders <- function(object)
+{
+    sapply(object, function(x) {
+        arma <- x$spec$model$arma
+        if (is.null(arma)) 0L else as.integer(sum(arma))
+    })
+}
+
+.has_arma_dynamics <- function(object) any(.arma_orders(object) > 0)
+
+.check_cond_mean_arma <- function(object, cond_mean)
+{
+    if (is.null(cond_mean)) return(invisible(NULL))
+    orders <- .arma_orders(object)
+    if (any(orders > 0)) {
+        snames <- names(object)
+        if (is.null(snames)) snames <- paste0("series_", seq_along(orders))
+        stop(paste0("\ncond_mean cannot be used when any first stage model has ARMA dynamics (",
+                    paste0(snames[orders > 0], collapse = ", "),
+                    "). Either use arma = c(0,0) in all first stage models and supply cond_mean, or let the first stage ARMA-GARCH models generate the conditional mean."), call. = FALSE)
+    }
+    return(invisible(NULL))
+}
+
 .cond_mean_spec <- function(mu = NULL, n_series, n_points, series_names)
 {
     if (is.null(mu)) {
