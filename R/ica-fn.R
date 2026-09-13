@@ -4,7 +4,7 @@
     Y <- X
     covariance_matrix <- switch(pca_cov,
                                 "ML" = (t(Y) %*% Y)/dim(Y)[1],
-                                "LW" = lw_covariance(Y, demean = FALSE,...),
+                                "LW" = lw_covariance(Y, demean = FALSE, trace = trace, ...),
                                 "EWMA" = ewma_covariance(Y, demean = FALSE, ...))
     ed <- eigen(covariance_matrix)
     D <- diag(ed$values)
@@ -100,7 +100,7 @@
     return(list(Z = Z, K = K, L = L))
 }
 
-lw_covariance <- function(X, shrink = -1, demean = FALSE, trace) {
+lw_covariance <- function(X, shrink = -1, demean = FALSE, trace = FALSE) {
     n <- NROW(X)
     m <- NCOL(X)
     mu <- colMeans(X)

@@ -12,7 +12,9 @@ methods.
 calculation when the ARMA order exceeds the GARCH order.
 * Fixed the joint hessian/score calculation failing when the first stage models
 have unequal numbers of estimated parameters (e.g. when variance targeting is
-used for only some series), reported in GitHub issue #7.
+used for only some series) (#7, reported by @kbuchardt).
+* Fixed `pca_cov = "LW"` failing in GOGARCH estimation due to a missing `trace`
+argument (#6, reported by @Caliani21).
 
 # tsmarch 1.0.2
 
