@@ -226,7 +226,6 @@
         model_nll <- garch_nll + copula_nll
         solution <- NULL
         pmatrix <- copy(object$parmatrix)
-        all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)))
         new_spec <- copy(object)
         new_spec$parmatrix <- copy(pmatrix)
         mmatrix <- .joint_parameter_matrix(new_spec)
@@ -273,7 +272,7 @@
             pmatrix[parameter == "shape", estimate := 1]
             pmatrix[estimate == 1]$value <- pars
             # hessian/scores
-            all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)), pmatrix[estimate == 1]$value)
+            all_pars <- c(unlist(lapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value), use.names = FALSE), pmatrix[estimate == 1]$value)
             new_spec <- copy(object)
             new_spec$parmatrix <- copy(pmatrix)
             mmatrix <- .joint_parameter_matrix(new_spec)
@@ -335,7 +334,7 @@
                 pmatrix <- copy(object$parmatrix)
                 pmatrix[estimate == 1]$value <- pars
                 # hessian/scores
-                all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)), pmatrix[estimate == 1]$value)
+                all_pars <- c(unlist(lapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value), use.names = FALSE), pmatrix[estimate == 1]$value)
                 new_spec <- copy(object)
                 new_spec$parmatrix <- copy(pmatrix)
                 mmatrix <- .joint_parameter_matrix(new_spec)
@@ -437,7 +436,7 @@
         # quasi-likelihood
         model_nll <- garch_nll + copula_nll
         # hessian and scores
-        all_pars <- c(as.vector(sapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value)), pmatrix[estimate == 1]$value)
+        all_pars <- c(unlist(lapply(object$univariate, function(x) x$parmatrix[estimate == 1]$value), use.names = FALSE), pmatrix[estimate == 1]$value)
         new_spec <- copy(object)
         new_spec$parmatrix <- copy(pmatrix)
         mmatrix <- .joint_parameter_matrix(new_spec)

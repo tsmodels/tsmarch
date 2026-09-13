@@ -10,6 +10,9 @@ methods.
 * Minimum required version of tsgarch raised to 1.0.5.
 * Fixed the univariate pre-sample trim length in the partitioned hessian/score
 calculation when the ARMA order exceeds the GARCH order.
+* Fixed the joint hessian/score calculation failing when the first stage models
+have unequal numbers of estimated parameters (e.g. when variance targeting is
+used for only some series), reported in GitHub issue #7.
 
 # tsmarch 1.0.2
 
