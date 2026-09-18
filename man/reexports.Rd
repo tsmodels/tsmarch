@@ -13,8 +13,8 @@ These objects are imported from other packages. Follow the links
 below to see their documentation.
 
 \describe{
-  \item{sandwich}{\code{\link[sandwich]{bread}}, \code{\link[sandwich]{estfun}}}
+  \item{sandwich}{\code{\link[sandwich:bread]{bread()}}, \code{\link[sandwich:estfun]{estfun()}}}
 
-  \item{tsgarch}{\code{\link[tsgarch]{newsimpact}}}
+  \item{tsgarch}{\code{\link[tsgarch:newsimpact]{newsimpact()}}}
 }}
 
