@@ -463,7 +463,7 @@
 
 # copula filtering ---------------------------------------------------
 
-.copula_dynamic_filter <- function(object, y, update = TRUE, cond_mean = NULL, ...)
+.copula_dynamic_filter <- function(object, y, update = TRUE, cond_mean = NULL, newxreg = NULL, ...)
 {
     group <- NULL
     # the filtering will return a new estimate object with updated data.
@@ -474,7 +474,8 @@
     # on the original data size
     elapsed <- Sys.time()
     if (!is.xts(y)) stop("\ny must be an xts object.")
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
+    newxreg <- .multi_xreg_spec(object$spec$univariate, newxreg, NROW(y), "newxreg")
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -496,7 +497,7 @@
     if (is.null(object$spec$target$original_size)) {
         object$spec$target$original_size <- NROW(object$spec$target$y)
     }
-    new_univariate <- .garch_filter_model(object, y)
+    new_univariate <- .garch_filter_model(object, y, newxreg)
     object$spec$target$y <- coredata(residuals(new_univariate))
     if (!is_null_y) {
         if (!is.null(cond_mean)) {
@@ -571,13 +572,14 @@
     return(object)
 }
 
-.copula_constant_filter <- function(object, y, update = TRUE, cond_mean = NULL, ...)
+.copula_constant_filter <- function(object, y, update = TRUE, cond_mean = NULL, newxreg = NULL, ...)
 {
 
     elapsed <- Sys.time()
     group <- NULL
     if (!is.xts(y)) stop("\ny must be an xts object.")
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
+    newxreg <- .multi_xreg_spec(object$spec$univariate, newxreg, NROW(y), "newxreg")
     if (!is.null(y)) {
         is_null_y <- FALSE
         new_y <- NROW(y)
@@ -598,7 +600,7 @@
     if (is.null(object$spec$target$original_size)) {
         object$spec$target$original_size <- NROW(object$spec$target$y)
     }
-    new_univariate <- .garch_filter_model(object, y)
+    new_univariate <- .garch_filter_model(object, y, newxreg)
     object$spec$target$y <- coredata(residuals(new_univariate))
     if (!is_null_y) {
         if (!is.null(cond_mean)) {
@@ -658,14 +660,15 @@
                                      Q_init = NULL, Z_init = NULL,
                                      init_method = c("start", "end"),
                                      cond_mean = NULL,
-                                     sim_method = c("parametric", "bootstrap"), ...)
+                                     sim_method = c("parametric", "bootstrap"), xreg = NULL, ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
     init_method <- match.arg(init_method, c("start", "end"))
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    xreg <- .multi_xreg_spec(object$spec$univariate, xreg, h + burn, "xreg")
     group <- NULL
     Z <- object$copula_residuals
     R <- tscor(object)
@@ -707,7 +710,7 @@
                                         Qbar = Qbar, Nbar = Nbar,
                                         Qinit = Qinit, Zinit = Zinit,
                                         std_noise = std_noise,
-                                        timesteps = h, burn = burn, dccorder = dccorder,
+                                        timesteps = h, burn = 0, dccorder = dccorder,
                                         distribution = distribution)
         return(sim)
     }, future.seed = TRUE, future.globals = TRUE, future.packages = "tsmarch")
@@ -727,10 +730,11 @@
     }
     gsim <- NULL
     gsim <- future_lapply(1:n_series, function(i){
-        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method)
+        .garch_simulate_model(object$spec$univariate[[i]], nsim, h - burn, burn, .retain_dimensions_array(std_residuals, i), init_method, xreg = xreg[[i]])
     }, future.packages = c("tsgarch","tsmarch"), future.seed = TRUE)
     gsim <- eval(gsim)
     # reformat output [h n_series nsim]
+    h <- h - burn
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
@@ -740,6 +744,10 @@
     }
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
+    if (burn > 0) {
+        R <- R[-seq_len(burn), , , drop = FALSE]
+        std_residuals <- std_residuals[, -seq_len(burn), , drop = FALSE]
+    }
     m <- .lower_tri_dimension(length(R[1,,1]), diag = FALSE)
     n <- length(R[,1,1])
     dims <- c(m, m, n)
@@ -757,14 +765,15 @@
     return(out)
 }
 
-.copula_constant_simulate_r <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, cond_mean = NULL, sim_method = "parametric", init_method = c("start", "end"), ...)
+.copula_constant_simulate_r <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0, cond_mean = NULL, sim_method = "parametric", init_method = c("start", "end"), xreg = NULL, ...)
 {
     # simulate from t-copula
     parameter <- NULL
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    xreg <- .multi_xreg_spec(object$spec$univariate, xreg, h + burn, "xreg")
     init_method <- match.arg(init_method, c("start", "end"))
     h <- h + burn
     n_series <- object$spec$n_series
@@ -800,8 +809,9 @@
         std_residuals[,,i] <- .copula_qtransform(object, .retain_dimensions_array(U, i), i)
     }
     gsim <- lapply(1:n_series, function(i){
-        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method)
+        .garch_simulate_model(object$spec$univariate[[i]], nsim, h - burn, burn, .retain_dimensions_array(std_residuals, i), init_method, xreg = xreg[[i]])
     })
+    h <- h - burn
     sim_mu <- lapply(gsim, function(x) x$series)
     sim_mu <- array(unlist(sim_mu), dim = c(nsim, h, n_series))
     sim_mu <- aperm(sim_mu, perm = c(2, 3, 1))
@@ -811,6 +821,9 @@
     sim_sigma <- lapply(gsim, function(x) x$sigma)
     sim_sigma <- array(unlist(sim_sigma), dim = c(nsim, h, n_series))
     sim_sigma <- aperm(sim_sigma, perm = c(2, 3, 1))
+    if (burn > 0) {
+        std_residuals <- std_residuals[, -seq_len(burn), , drop = FALSE]
+    }
     # generate Ht
     # lower tri vector [h x lower_tri_vector x nsim]
     H <- .cor2cov2(matrix(rvec, nrow = 1), sim_sigma, n_series)
@@ -829,7 +842,7 @@
 
 # copula prediction ---------------------------------------------------
 
-.copula_dynamic_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"), forc_dates = NULL, cond_mean = NULL, seed = NULL, ...)
+.copula_dynamic_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"), forc_dates = NULL, cond_mean = NULL, seed = NULL, newxreg = NULL, ...)
 {
     elapsed <- Sys.time()
     if (!is.null(seed)) set.seed(seed)
@@ -842,8 +855,9 @@
     init_method <- "end"
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    newxreg <- .multi_xreg_spec(object$spec$univariate, newxreg, h, "newxreg")
     group <- NULL
     Z <- object$copula_residuals
     R <- tscor(object)
@@ -903,7 +917,7 @@
     }
     gsim <- NULL
     gsim <- lapply(1:n_series, function(i){
-        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method)
+        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method, xreg = newxreg[[i]])
     })
     # reformat output [h n_series nsim]
     sim_mu <- lapply(gsim, function(x) x$series)
@@ -933,7 +947,7 @@
 }
 
 .copula_constant_predict <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"), forc_dates = NULL,
-                                     cond_mean = NULL, seed = NULL, ...)
+                                     cond_mean = NULL, seed = NULL, newxreg = NULL, ...)
 {
     group <- NULL
     elapsed <- Sys.time()
@@ -948,8 +962,9 @@
     shape <- object$parmatrix[group == "shape"]$value
     burn <- 0
     sim_method <- match.arg(sim_method, c("parametric", "bootstrap"))
-    .check_cond_mean_arma(object$spec$univariate, cond_mean)
+    .check_cond_mean_dynamics(object$spec$univariate, cond_mean)
     mu <- .cond_mean_spec(cond_mean, object$spec$n_series, h, object$spec$series_names)
+    newxreg <- .multi_xreg_spec(object$spec$univariate, newxreg, h, "newxreg")
     group <- NULL
     Z <- object$copula_residuals
     R <- tscor(object)
@@ -983,7 +998,7 @@
         std_residuals[,,i] <- .copula_qtransform(object, .retain_dimensions_array(U, i), i)
     }
     gsim <- lapply(1:n_series, function(i){
-        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method)
+        .garch_simulate_model(object$spec$univariate[[i]], nsim, h, burn, .retain_dimensions_array(std_residuals, i), init_method, xreg = newxreg[[i]])
     })
     # reformat output [h n_series nsim]
     sim_mu <- lapply(gsim, function(x) x$series)

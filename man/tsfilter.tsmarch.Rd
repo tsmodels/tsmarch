@@ -32,14 +32,24 @@
 
 \item{y}{an xts matrix of new values to filter.}
 
-\item{newxreg}{not used in these models.}
+\item{newxreg}{an optional list with one element per series supplying the mean
+equation regressors of the first stage models. Each element is either NULL or a
+matrix/xts of regressors with the same number of rows as \code{y} and the same
+number of columns as the regressors used when specifying that series' model.
+The list may be fully named (in which case it may be partial, with unmentioned
+series treated as NULL) or fully unnamed (in which case it must have exactly
+one element per series). Series whose first stage models were specified
+without mean regressors must have NULL elements. For series with mean
+regressors, a NULL element (or a missing entry in a partial named list)
+results in the regressors being set to zero with a warning. Not used in the
+GOGARCH model.}
 
 \item{update}{whether to update certain values using the most recent information
 less than the new data (see details).}
 
 \item{cond_mean}{an optional matrix of the filtered conditional mean values.
 For the DCC and Copula GARCH models this is only available when every first
-stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+stage model uses \code{arma = c(0,0)} and no mean regressors; otherwise the
 conditional mean is taken from the first stage models automatically.}
 
 \item{...}{additional arguments for future expansion.}

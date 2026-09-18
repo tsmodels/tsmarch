@@ -467,18 +467,120 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
 
 .has_arma_dynamics <- function(object) any(.arma_orders(object) > 0)
 
-.check_cond_mean_arma <- function(object, cond_mean)
+.xreg_series <- function(object)
+{
+    sapply(object, function(x) isTRUE(x$spec$xreg$include_xreg))
+}
+
+.has_xreg_dynamics <- function(object) any(.xreg_series(object))
+
+.check_cond_mean_dynamics <- function(object, cond_mean)
 {
     if (is.null(cond_mean)) return(invisible(NULL))
     orders <- .arma_orders(object)
-    if (any(orders > 0)) {
+    has_arma <- orders > 0
+    has_xreg <- .xreg_series(object)
+    if (any(has_arma) || any(has_xreg)) {
         snames <- names(object)
         if (is.null(snames)) snames <- paste0("series_", seq_along(orders))
-        stop(paste0("\ncond_mean cannot be used when any first stage model has ARMA dynamics (",
-                    paste0(snames[orders > 0], collapse = ", "),
-                    "). Either use arma = c(0,0) in all first stage models and supply cond_mean, or let the first stage ARMA-GARCH models generate the conditional mean."), call. = FALSE)
+        reasons <- NULL
+        if (any(has_arma)) {
+            reasons <- c(reasons, paste0("ARMA dynamics (", paste0(snames[has_arma], collapse = ", "), ")"))
+        }
+        if (any(has_xreg)) {
+            reasons <- c(reasons, paste0("mean regressors (", paste0(snames[has_xreg], collapse = ", "), ")"))
+        }
+        stop(paste0("\ncond_mean cannot be used when any first stage model has ",
+                    paste0(reasons, collapse = " or "),
+                    ". Either use arma = c(0,0) with no mean regressors in all first stage models and supply cond_mean, or let the first stage models generate the conditional mean."), call. = FALSE)
     }
     return(invisible(NULL))
+}
+
+# validates and normalises the mean equation regressor argument used by
+# tsfilter (newxreg), predict (newxreg) and simulate (xreg). The user supplies
+# a list with one element per series; each element is a matrix/xts of
+# regressors or NULL. Returns a list of length n_series whose elements are
+# either NULL or a numeric matrix with n_required rows.
+.multi_xreg_spec <- function(univariate, newxreg, n_required, argument_name = "newxreg")
+{
+    n_series <- length(univariate)
+    snames <- names(univariate)
+    if (is.null(snames)) snames <- paste0("series_", seq_len(n_series))
+    has_xreg <- .xreg_series(univariate)
+    ncols <- sapply(seq_len(n_series), function(i) {
+        if (has_xreg[i]) NCOL(univariate[[i]]$spec$xreg$xreg) else 0L
+    })
+    zero_fill <- function(i) matrix(0, nrow = n_required, ncol = ncols[i])
+    zero_filled <- character(0)
+    ignored <- character(0)
+    if (is.null(newxreg)) {
+        if (!any(has_xreg)) return(vector("list", n_series))
+        zero_filled <- snames[has_xreg]
+        out <- lapply(seq_len(n_series), function(i) if (has_xreg[i]) zero_fill(i) else NULL)
+        warning(paste0("\n", argument_name, " is NULL but the following series were specified with mean regressors: ",
+                       paste0(zero_filled, collapse = ", "), ". Setting to zero."), call. = FALSE)
+        return(out)
+    }
+    if (!is.list(newxreg)) {
+        stop(paste0("\n", argument_name, " must be a list with one element per series (a matrix/xts of regressors or NULL)."), call. = FALSE)
+    }
+    nms <- names(newxreg)
+    if (is.null(nms) || all(!nzchar(nms))) {
+        if (length(newxreg) != n_series) {
+            stop(paste0("\nan unnamed ", argument_name, " list must have exactly one element per series (", n_series, " expected, got ", length(newxreg), ")."), call. = FALSE)
+        }
+        xreg_list <- newxreg
+    } else if (all(nzchar(nms))) {
+        if (any(duplicated(nms))) {
+            stop(paste0("\n", argument_name, " has duplicated names: ", paste0(unique(nms[duplicated(nms)]), collapse = ", ")), call. = FALSE)
+        }
+        unknown <- setdiff(nms, snames)
+        if (length(unknown) > 0) {
+            stop(paste0("\n", argument_name, " contains names not matching any first stage series: ",
+                        paste0(unknown, collapse = ", ")), call. = FALSE)
+        }
+        xreg_list <- vector("list", n_series)
+        xreg_list[match(nms, snames)] <- newxreg
+    } else {
+        stop(paste0("\n", argument_name, " must be either a fully named list (one element per series name) or a fully unnamed list (one element per series)."), call. = FALSE)
+    }
+    out <- vector("list", n_series)
+    for (i in seq_len(n_series)) {
+        x <- xreg_list[[i]]
+        if (is.null(x)) {
+            if (has_xreg[i]) {
+                out[[i]] <- zero_fill(i)
+                zero_filled <- c(zero_filled, snames[i])
+            }
+        } else {
+            if (!has_xreg[i]) {
+                ignored <- c(ignored, snames[i])
+            } else {
+                if (is.xts(x)) x <- coredata(x)
+                x <- as.matrix(x)
+                if (NROW(x) != n_required) {
+                    stop(paste0("\n", argument_name, " for series ", snames[i], " must have ", n_required, " rows (got ", NROW(x), ")."), call. = FALSE)
+                }
+                if (NCOL(x) != ncols[i]) {
+                    stop(paste0("\n", argument_name, " for series ", snames[i], " must have ", ncols[i], " columns (got ", NCOL(x), ")."), call. = FALSE)
+                }
+                if (any(!is.finite(x))) {
+                    stop(paste0("\nNA/NaN/Inf values found in ", argument_name, " for series ", snames[i], "."), call. = FALSE)
+                }
+                out[[i]] <- x
+            }
+        }
+    }
+    if (length(zero_filled) > 0) {
+        warning(paste0("\nno ", argument_name, " supplied for the following series which were specified with mean regressors: ",
+                       paste0(zero_filled, collapse = ", "), ". Setting to zero."), call. = FALSE)
+    }
+    if (length(ignored) > 0) {
+        warning(paste0("\n", argument_name, " was supplied for the following series which were not specified with mean regressors: ",
+                       paste0(ignored, collapse = ", "), ". Ignoring."), call. = FALSE)
+    }
+    return(out)
 }
 
 .cond_mean_spec <- function(mu = NULL, n_series, n_points, series_names)

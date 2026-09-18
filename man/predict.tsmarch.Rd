@@ -15,6 +15,7 @@
   forc_dates = NULL,
   cond_mean = NULL,
   seed = NULL,
+  newxreg = NULL,
   ...
 )
 
@@ -26,6 +27,7 @@
   forc_dates = NULL,
   cond_mean = NULL,
   seed = NULL,
+  newxreg = NULL,
   ...
 )
 
@@ -59,10 +61,18 @@ after the last available date in the data.}
 \item{cond_mean}{an optional matrix (h x n_series) of the predicted conditional
 mean for the series which is used to recenter the simulated predictive distribution.
 For the DCC and Copula GARCH models this is only available when every first
-stage model uses \code{arma = c(0,0)}; with ARMA first stage models the
+stage model uses \code{arma = c(0,0)} and no mean regressors; otherwise the
 conditional mean is taken from the first stage models automatically.}
 
 \item{seed}{an integer that will be used in a call to set.seed before simulating.}
+
+\item{newxreg}{an optional list with one element per series supplying the mean
+equation regressors of the first stage models for the forecast horizon. Each
+element is either NULL or a matrix/xts of regressors with \code{h} rows and the
+same number of columns as the regressors used when specifying that series'
+model. The list may be fully named (and partial) or fully unnamed (and
+complete); see the \code{newxreg} argument of \code{\link{tsfilter}} for
+details. Not used in the GOGARCH model.}
 
 \item{...}{no additional arguments currently supported.}
 }

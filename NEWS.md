@@ -7,6 +7,18 @@ GARCH models, with the conditional mean propagated to the joint distribution
 dynamics at the model level: if any first stage series uses `arma`, supplying
 `cond_mean` raises an error in the specification, filter, simulate and predict
 methods.
+* Added support for first stage mean equation regressors (`xreg` in
+`garch_modelspec`) in the DCC and Copula GARCH models: `tsfilter` and
+`predict` gain a `newxreg` argument and `simulate` an `xreg` argument, each
+taking a list with one element per series (fully named and possibly partial,
+or fully unnamed and complete).
+* The `cond_mean` argument is now also mutually exclusive with first stage
+mean regressors, for the same reason as with ARMA dynamics.
+* Fixed `simulate` with `burn > 0` failing for the DCC and Copula GARCH
+models: the burn-in period is now discarded once at the end of the joint
+recursion rather than in the correlation recursion before the first stage
+GARCH recursion could consume it, and the returned correlation, covariance
+and standardized residual arrays are correctly of length `h`.
 * Minimum required version of tsgarch raised to 1.0.5.
 * Fixed the univariate pre-sample trim length in the partitioned hessian/score
 calculation when the ARMA order exceeds the GARCH order.

@@ -36,7 +36,7 @@
                 series_init = series_init, resid_init = resid_init))
 }
 
-.garch_simulate_model <- function(object, nsim, h, burn, innov, init_method)
+.garch_simulate_model <- function(object, nsim, h, burn, innov, init_method, xreg = NULL)
 {
     init_states <- .garch_initialize_states(object, init_method)
     gspec <- object$spec
@@ -45,17 +45,18 @@
                  innov_init = init_states$std_residuals, innov = innov, arch_init = init_states$arch_initial)
     if (!is.null(init_states$series_init)) args$series_init <- init_states$series_init
     if (!is.null(init_states$resid_init)) args$resid_init <- init_states$resid_init
+    if (!is.null(xreg)) args$xreg <- xreg
     sim <- do.call(simulate, args)
     return(sim)
 }
 
 
-.garch_filter_model <- function(object, y)
+.garch_filter_model <- function(object, y, newxreg = NULL)
 {
     m <- NCOL(y)
     new_fit <- NULL
     new_fit <- future_lapply(1:m, function(i) {
-        tsfilter(object$spec$univariate[[i]], y = y[,i])
+        tsfilter(object$spec$univariate[[i]], y = y[,i], newxreg = newxreg[[i]])
     }, future.packages = "tsgarch", future.seed = TRUE)
     new_fit <- eval(new_fit)
     names(new_fit) <- names(object$spec$univariate)

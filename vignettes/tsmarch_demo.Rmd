@@ -559,3 +559,13 @@ are mutually exclusive at the model level:
 ```{r}
 try(dcc_modelspec(garch_model_arma, dynamics = "adcc", cond_mean = .fitted))
 ```
+
+Mean equation regressors can also be included in the first stage via the
+`xreg` argument of `garch_modelspec`, either on their own or together with an
+`arma` order. The forward-looking methods then take a list of new regressors
+with one element per series: `newxreg` in `tsfilter` (rows equal to the new
+data) and `predict` (rows equal to `h`), and `xreg` in `simulate` (rows equal
+to `h + burn`). The list may be fully named, in which case it may be partial,
+or fully unnamed, in which case it must have one element per series. Like ARMA
+dynamics, first stage regressors are mutually exclusive with the `cond_mean`
+argument.

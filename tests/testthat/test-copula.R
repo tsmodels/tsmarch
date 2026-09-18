@@ -94,3 +94,32 @@ test_that("cgarch constant prediction",{
     expect_equal(dim(port$mu), c(nsim, h))
     expect_equal(dim(port$sigma), c(nsim, h))
 })
+
+test_that("cgarch dynamic simulate discards burn correctly",{
+    n_series <- length(test_series)
+    h <- 10
+    burn <- 5
+    s <- simulate(global_cgarch_dcc_estimate_p, h = h, burn = burn, nsim = 4, seed = 42)
+    expect_equal(dim(s$mu), c(h, n_series, 4))
+    expect_equal(NROW(s$R), h)
+    expect_equal(dim(s$Z)[2], h)
+    expect_equal(s$h, h)
+    # invariant: the burn run draws the same random numbers as a longer no-burn
+    # run under the same seed, so it must return exactly the last h rows
+    a <- simulate(global_cgarch_dcc_estimate_p, h = h + burn, burn = 0, nsim = 3, seed = 99)
+    b <- simulate(global_cgarch_dcc_estimate_p, h = h, burn = burn, nsim = 3, seed = 99)
+    expect_equal(b$R, a$R[(burn + 1):(h + burn), , , drop = FALSE])
+    expect_equal(b$H, a$H[(burn + 1):(h + burn), , , drop = FALSE])
+    expect_equal(b$Z, a$Z[, (burn + 1):(h + burn), , drop = FALSE])
+    expect_equal(b$mu, a$mu[(burn + 1):(h + burn), , , drop = FALSE])
+})
+
+test_that("cgarch constant simulate discards burn correctly",{
+    n_series <- length(test_series)
+    h <- 10
+    burn <- 5
+    s <- simulate(global_cgarch_constant_estimate_p, h = h, burn = burn, nsim = 4, seed = 42)
+    expect_equal(dim(s$mu), c(h, n_series, 4))
+    expect_equal(dim(s$Z)[2], h)
+    expect_equal(s$h, h)
+})
