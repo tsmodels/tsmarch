@@ -1,6 +1,6 @@
 # tsmarch 1.0.3
 
-* Added support for joint ARMA-GARCH first stage models in the DCC and Copula
+* Added support for joint ARMA(X)-GARCH first stage models in the DCC and Copula
 GARCH models, with the conditional mean propagated to the joint distribution
 (estimation, filtering, prediction and simulation).
 * The `cond_mean` argument is now mutually exclusive with first stage ARMA

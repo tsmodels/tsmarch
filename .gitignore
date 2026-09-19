@@ -38,6 +38,9 @@
 /doc/
 /Meta/
 
+/*.devin/
+
+
 README.Rmd
 
 *.so

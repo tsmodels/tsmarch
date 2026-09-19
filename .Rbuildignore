@@ -1,6 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.github$
+^\.devin$
 ^doc$
 ^Meta$
 README.Rmd

@@ -1,6 +1,5 @@
 #ifndef DISTRIBUTIONS_H
 #define DISTRIBUTIONS_H
-#include <R.h>
 #include <RcppArmadillo.h>
 #include <RcppBessel.h>
 #include <complex>
