@@ -497,28 +497,44 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
     return(invisible(NULL))
 }
 
-# validates and normalises the mean equation regressor argument used by
-# tsfilter (newxreg), predict (newxreg) and simulate (xreg). The user supplies
-# a list with one element per series; each element is a matrix/xts of
-# regressors or NULL. Returns a list of length n_series whose elements are
-# either NULL or a numeric matrix with n_required rows.
-.multi_xreg_spec <- function(univariate, newxreg, n_required, argument_name = "newxreg")
+# validates and normalises a first stage regressor argument used by
+# tsfilter (newxreg/newvreg), predict (newxreg/newvreg) and simulate
+# (xreg/vreg). The user supplies a list with one element per series; each
+# element is a matrix/xts of regressors or NULL. Returns a list of length
+# n_series whose elements are either NULL or a numeric matrix with
+# n_required rows. slot selects the regressor slot pair of the first stage
+# specs: "xreg" reads x$spec$xreg$include_xreg and x$spec$xreg$xreg whilst
+# "vreg" reads x$spec$vreg$include_vreg and x$spec$vreg$vreg. missing_action
+# sets the policy when a series was specified with regressors but none are
+# supplied for it: "zero_warn" warns and zero fills (mean regressors),
+# "error" raises an error naming the affected series (variance regressors).
+.multi_xreg_spec <- function(univariate, newxreg, n_required, argument_name = "newxreg",
+                             slot = c("xreg", "vreg"), missing_action = c("zero_warn", "error"))
 {
+    slot <- match.arg(slot)
+    missing_action <- match.arg(missing_action)
     n_series <- length(univariate)
     snames <- names(univariate)
     if (is.null(snames)) snames <- paste0("series_", seq_len(n_series))
-    has_xreg <- .xreg_series(univariate)
+    include_flag <- paste0("include_", slot)
+    regressor_label <- switch(slot, "xreg" = "mean regressors", "vreg" = "variance regressors")
+    has_xreg <- sapply(univariate, function(x) isTRUE(x$spec[[slot]][[include_flag]]))
     ncols <- sapply(seq_len(n_series), function(i) {
-        if (has_xreg[i]) NCOL(univariate[[i]]$spec$xreg$xreg) else 0L
+        if (has_xreg[i]) NCOL(univariate[[i]]$spec[[slot]][[slot]]) else 0L
     })
     zero_fill <- function(i) matrix(0, nrow = n_required, ncol = ncols[i])
     zero_filled <- character(0)
+    missing_reg <- character(0)
     ignored <- character(0)
     if (is.null(newxreg)) {
         if (!any(has_xreg)) return(vector("list", n_series))
+        if (missing_action == "error") {
+            stop(paste0("\n", argument_name, " is NULL but the following series were specified with ", regressor_label, ": ",
+                        paste0(snames[has_xreg], collapse = ", "), "."), call. = FALSE)
+        }
         zero_filled <- snames[has_xreg]
         out <- lapply(seq_len(n_series), function(i) if (has_xreg[i]) zero_fill(i) else NULL)
-        warning(paste0("\n", argument_name, " is NULL but the following series were specified with mean regressors: ",
+        warning(paste0("\n", argument_name, " is NULL but the following series were specified with ", regressor_label, ": ",
                        paste0(zero_filled, collapse = ", "), ". Setting to zero."), call. = FALSE)
         return(out)
     }
@@ -550,8 +566,12 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
         x <- xreg_list[[i]]
         if (is.null(x)) {
             if (has_xreg[i]) {
-                out[[i]] <- zero_fill(i)
-                zero_filled <- c(zero_filled, snames[i])
+                if (missing_action == "error") {
+                    missing_reg <- c(missing_reg, snames[i])
+                } else {
+                    out[[i]] <- zero_fill(i)
+                    zero_filled <- c(zero_filled, snames[i])
+                }
             }
         } else {
             if (!has_xreg[i]) {
@@ -572,12 +592,16 @@ solver_conditions <- function(pars, fn, gr, hess, arglist)
             }
         }
     }
+    if (length(missing_reg) > 0) {
+        stop(paste0("\nno ", argument_name, " supplied for the following series which were specified with ", regressor_label, ": ",
+                    paste0(missing_reg, collapse = ", "), "."), call. = FALSE)
+    }
     if (length(zero_filled) > 0) {
-        warning(paste0("\nno ", argument_name, " supplied for the following series which were specified with mean regressors: ",
+        warning(paste0("\nno ", argument_name, " supplied for the following series which were specified with ", regressor_label, ": ",
                        paste0(zero_filled, collapse = ", "), ". Setting to zero."), call. = FALSE)
     }
     if (length(ignored) > 0) {
-        warning(paste0("\n", argument_name, " was supplied for the following series which were not specified with mean regressors: ",
+        warning(paste0("\n", argument_name, " was supplied for the following series which were not specified with ", regressor_label, ": ",
                        paste0(ignored, collapse = ", "), ". Ignoring."), call. = FALSE)
     }
     return(out)

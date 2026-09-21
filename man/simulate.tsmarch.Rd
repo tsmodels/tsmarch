@@ -19,6 +19,7 @@
   cond_mean = NULL,
   sim_method = c("parametric", "bootstrap"),
   xreg = NULL,
+  vreg = NULL,
   ...
 )
 
@@ -34,6 +35,7 @@
   cond_mean = NULL,
   sim_method = c("parametric", "bootstrap"),
   xreg = NULL,
+  vreg = NULL,
   ...
 )
 
@@ -93,6 +95,15 @@ and the same number of columns as the regressors used when specifying that
 series' model. The list may be fully named (and partial) or fully unnamed
 (and complete); see the \code{newxreg} argument of \code{\link{tsfilter}} for
 details. Not used in the GOGARCH model.}
+
+\item{vreg}{an optional list with one element per series supplying the
+variance equation regressors of the first stage models for the simulated
+horizon. Each element is either NULL or a matrix/xts of regressors with
+\code{h + burn} rows and the same number of columns as the variance
+regressors used when specifying that series' model. The list may be fully
+named (and partial) or fully unnamed (and complete); see the \code{newvreg}
+argument of \code{\link{tsfilter}} for details. Not used in the GOGARCH
+model.}
 
 \item{...}{no additional arguments currently supported.}
 }

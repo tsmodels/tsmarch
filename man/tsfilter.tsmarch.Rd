@@ -11,6 +11,7 @@
   object,
   y = NULL,
   newxreg = NULL,
+  newvreg = NULL,
   update = TRUE,
   cond_mean = NULL,
   ...
@@ -20,6 +21,7 @@
   object,
   y = NULL,
   newxreg = NULL,
+  newvreg = NULL,
   update = TRUE,
   cond_mean = NULL,
   ...
@@ -43,6 +45,18 @@ without mean regressors must have NULL elements. For series with mean
 regressors, a NULL element (or a missing entry in a partial named list)
 results in the regressors being set to zero with a warning. Not used in the
 GOGARCH model.}
+
+\item{newvreg}{an optional list with one element per series supplying the
+variance equation regressors of the first stage models. Each element is
+either NULL or a matrix/xts of regressors with the same number of rows as
+\code{y} and the same number of columns as the variance regressors used when
+specifying that series' model. The list may be fully named (in which case it
+may be partial, with unmentioned series treated as NULL) or fully unnamed
+(in which case it must have exactly one element per series). Series whose
+first stage models were specified without variance regressors must have NULL
+elements. Unlike \code{newxreg}, a NULL element (or a missing entry in a
+partial named list) for a series with variance regressors raises an error.
+Not used in the GOGARCH model.}
 
 \item{update}{whether to update certain values using the most recent information
 less than the new data (see details).}

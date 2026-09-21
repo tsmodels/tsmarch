@@ -280,6 +280,17 @@ estimate.gogarch.spec <- function(object, trace = FALSE, ...)
 #' regressors, a NULL element (or a missing entry in a partial named list)
 #' results in the regressors being set to zero with a warning. Not used in the
 #' GOGARCH model.
+#' @param newvreg an optional list with one element per series supplying the
+#' variance equation regressors of the first stage models. Each element is
+#' either NULL or a matrix/xts of regressors with the same number of rows as
+#' \code{y} and the same number of columns as the variance regressors used when
+#' specifying that series' model. The list may be fully named (in which case it
+#' may be partial, with unmentioned series treated as NULL) or fully unnamed
+#' (in which case it must have exactly one element per series). Series whose
+#' first stage models were specified without variance regressors must have NULL
+#' elements. Unlike \code{newxreg}, a NULL element (or a missing entry in a
+#' partial named list) for a series with variance regressors raises an error.
+#' Not used in the GOGARCH model.
 #' @param cond_mean an optional matrix of the filtered conditional mean values.
 #' For the DCC and Copula GARCH models this is only available when every first
 #' stage model uses \code{arma = c(0,0)} and no mean regressors; otherwise the
@@ -305,12 +316,12 @@ estimate.gogarch.spec <- function(object, trace = FALSE, ...)
 #' @export
 #'
 #'
-tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, cond_mean = NULL, ...)
+tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, newvreg = NULL, update = TRUE, cond_mean = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...),
-                  "dcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...),
-                  "adcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...))
+                  "constant" = .copula_constant_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...),
+                  "dcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...),
+                  "adcc" = .copula_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...))
     return(out)
 }
 
@@ -320,12 +331,12 @@ tsfilter.cgarch.estimate <- function(object, y = NULL, newxreg = NULL, update = 
 #' @export
 #'
 #'
-tsfilter.dcc.estimate <- function(object, y = NULL, newxreg = NULL, update = TRUE, cond_mean = NULL, ...)
+tsfilter.dcc.estimate <- function(object, y = NULL, newxreg = NULL, newvreg = NULL, update = TRUE, cond_mean = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...),
-                  "dcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...),
-                  "adcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, ...))
+                  "constant" = .dcc_constant_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...),
+                  "dcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...),
+                  "adcc" = .dcc_dynamic_filter(object, y = y, update = update, cond_mean = cond_mean, newxreg = newxreg, newvreg = newvreg, ...))
     return(out)
 }
 
@@ -379,6 +390,14 @@ tsfilter.gogarch.estimate <- function(object, y = NULL,  newxreg = NULL, cond_me
 #' series' model. The list may be fully named (and partial) or fully unnamed
 #' (and complete); see the \code{newxreg} argument of \code{\link{tsfilter}} for
 #' details. Not used in the GOGARCH model.
+#' @param vreg an optional list with one element per series supplying the
+#' variance equation regressors of the first stage models for the simulated
+#' horizon. Each element is either NULL or a matrix/xts of regressors with
+#' \code{h + burn} rows and the same number of columns as the variance
+#' regressors used when specifying that series' model. The list may be fully
+#' named (and partial) or fully unnamed (and complete); see the \code{newvreg}
+#' argument of \code{\link{tsfilter}} for details. Not used in the GOGARCH
+#' model.
 #' @param ... no additional arguments currently supported.
 #' @details
 #' Part of the code makes use of parallel functionality via
@@ -398,12 +417,12 @@ tsfilter.gogarch.estimate <- function(object, y = NULL,  newxreg = NULL, cond_me
 simulate.cgarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0,
                                      Q_init = NULL, Z_init = NULL,
                                      init_method = c("start", "end"), cond_mean = NULL,
-                                     sim_method = c("parametric", "bootstrap"), xreg = NULL, ...)
+                                     sim_method = c("parametric", "bootstrap"), xreg = NULL, vreg = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, xreg = xreg, ...),
-                  "dcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, ...),
-                  "adcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, ...))
+                  "constant" = .copula_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, xreg = xreg, vreg = vreg, ...),
+                  "dcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, vreg = vreg, ...),
+                  "adcc" = .copula_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, vreg = vreg, ...))
     return(out)
 }
 
@@ -415,12 +434,12 @@ simulate.cgarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bur
 simulate.dcc.estimate <- function(object, nsim = 1, seed = NULL, h = 100, burn = 0,
                                   Q_init = NULL, Z_init = NULL,
                                   init_method = c("start", "end"), cond_mean = NULL,
-                                  sim_method = c("parametric", "bootstrap"), xreg = NULL, ...)
+                                  sim_method = c("parametric", "bootstrap"), xreg = NULL, vreg = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, xreg = xreg, ...),
-                  "dcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, ...),
-                  "adcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, ...))
+                  "constant" = .dcc_constant_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], sim_method = sim_method[1], cond_mean = cond_mean, xreg = xreg, vreg = vreg, ...),
+                  "dcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, vreg = vreg, ...),
+                  "adcc" = .dcc_dynamic_simulate_r(object, nsim = nsim, seed = seed, h = h, burn = burn, init_method = init_method[1], cond_mean = cond_mean, sim_method = sim_method[1], xreg = xreg, vreg = vreg, ...))
     return(out)
 }
 
@@ -464,6 +483,13 @@ simulate.gogarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bu
 #' model. The list may be fully named (and partial) or fully unnamed (and
 #' complete); see the \code{newxreg} argument of \code{\link{tsfilter}} for
 #' details. Not used in the GOGARCH model.
+#' @param newvreg an optional list with one element per series supplying the
+#' variance equation regressors of the first stage models for the forecast
+#' horizon. Each element is either NULL or a matrix/xts of regressors with
+#' \code{h} rows and the same number of columns as the variance regressors
+#' used when specifying that series' model. The list may be fully named (and
+#' partial) or fully unnamed (and complete); see the \code{newvreg} argument
+#' of \code{\link{tsfilter}} for details. Not used in the GOGARCH model.
 #' @param ... no additional arguments currently supported.
 #' @details
 #' For the Copula GARCH model, the prediction is based on simulation due to the
@@ -477,12 +503,12 @@ simulate.gogarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bu
 #'
 #'
 predict.cgarch.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, newxreg = NULL, ...)
+                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, newxreg = NULL, newvreg = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .copula_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...),
-                  "dcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...),
-                  "adcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...))
+                  "constant" = .copula_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...),
+                  "dcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...),
+                  "adcc" = .copula_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...))
     return(out)
 }
 
@@ -492,12 +518,12 @@ predict.cgarch.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("
 #'
 #'
 predict.dcc.estimate <- function(object, h = 1, nsim = 1000, sim_method = c("parametric","bootstrap"),
-                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, newxreg = NULL, ...)
+                                    forc_dates = NULL, cond_mean = NULL, seed = NULL, newxreg = NULL, newvreg = NULL, ...)
 {
     out <- switch(object$spec$dynamics$model,
-                  "constant" = .dcc_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...),
-                  "dcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...),
-                  "adcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, ...))
+                  "constant" = .dcc_constant_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...),
+                  "dcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...),
+                  "adcc" = .dcc_dynamic_predict(object, h = h, nsim = nsim, sim_method = sim_method[1], forc_dates = forc_dates, cond_mean = cond_mean, seed = seed, newxreg = newxreg, newvreg = newvreg, ...))
     return(out)
 }
 

@@ -16,6 +16,7 @@
   cond_mean = NULL,
   seed = NULL,
   newxreg = NULL,
+  newvreg = NULL,
   ...
 )
 
@@ -28,6 +29,7 @@
   cond_mean = NULL,
   seed = NULL,
   newxreg = NULL,
+  newvreg = NULL,
   ...
 )
 
@@ -73,6 +75,14 @@ same number of columns as the regressors used when specifying that series'
 model. The list may be fully named (and partial) or fully unnamed (and
 complete); see the \code{newxreg} argument of \code{\link{tsfilter}} for
 details. Not used in the GOGARCH model.}
+
+\item{newvreg}{an optional list with one element per series supplying the
+variance equation regressors of the first stage models for the forecast
+horizon. Each element is either NULL or a matrix/xts of regressors with
+\code{h} rows and the same number of columns as the variance regressors
+used when specifying that series' model. The list may be fully named (and
+partial) or fully unnamed (and complete); see the \code{newvreg} argument
+of \code{\link{tsfilter}} for details. Not used in the GOGARCH model.}
 
 \item{...}{no additional arguments currently supported.}
 }

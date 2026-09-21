@@ -14,6 +14,13 @@ taking a list with one element per series (fully named and possibly partial,
 or fully unnamed and complete).
 * The `cond_mean` argument is now also mutually exclusive with first stage
 mean regressors, for the same reason as with ARMA dynamics.
+* Added support for first stage variance equation regressors (`vreg` in
+`garch_modelspec`) in the DCC and Copula GARCH models: `tsfilter` and
+`predict` gain a `newvreg` argument and `simulate` a `vreg` argument, each
+taking a list with one element per series of raw regressor matrices with
+`NROW(y)`, `h` and `h + burn` rows respectively. Regressors required by a
+first stage model but not supplied raise an error naming the affected
+series.
 * Fixed `simulate` with `burn > 0` failing for the DCC and Copula GARCH
 models: the burn-in period is now discarded once at the end of the joint
 recursion rather than in the correlation recursion before the first stage
