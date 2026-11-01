@@ -96,4 +96,9 @@ Prediction function for estimated objects.
 \details{
 For the Copula GARCH model, the prediction is based on simulation due to the
 nonlinear transformation present in the model.
+
+When first stage mean or variance regressors are supplied for the forecast
+horizon (\code{newxreg} and \code{newvreg}), they are treated as a single
+deterministic path shared across all simulated paths, so regressor
+uncertainty is not propagated into the predictive distribution.
 }

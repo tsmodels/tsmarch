@@ -406,6 +406,11 @@ tsfilter.gogarch.estimate <- function(object, y = NULL,  newxreg = NULL, cond_me
 #' individual GARCH series simulation), so unless you have more than 100 series
 #' then it is possible that using a parallel back-end may actually result in
 #' slower execution due to the overhead involved.
+#'
+#' When first stage mean or variance regressors are supplied for the simulated
+#' horizon (\code{xreg} and \code{vreg}), they are treated as a single
+#' deterministic path shared across all simulated paths, so regressor
+#' uncertainty is not propagated into the predictive distribution.
 #' @returns A simulation class object for which methods exists for extracting
 #' relevant statistics such as the correlation, covariance, etc.
 #' @aliases simulate
@@ -494,6 +499,11 @@ simulate.gogarch.estimate <- function(object, nsim = 1, seed = NULL, h = 100, bu
 #' @details
 #' For the Copula GARCH model, the prediction is based on simulation due to the
 #' nonlinear transformation present in the model.
+#'
+#' When first stage mean or variance regressors are supplied for the forecast
+#' horizon (\code{newxreg} and \code{newvreg}), they are treated as a single
+#' deterministic path shared across all simulated paths, so regressor
+#' uncertainty is not propagated into the predictive distribution.
 #' @returns A prediction class object for which methods exists for extracting
 #' relevant statistics such as the correlation, covariance, etc.
 #' @aliases predict
@@ -1678,13 +1688,13 @@ vcov_estimate <- function(object, adjust = FALSE, type = c("H","OP","QMLE","NW")
     } else if (type == "QMLE") {
         bread. <- bread(object)
         meat. <- meat_tsmarch(object, adjust = adjust)
-        V <- bread. %*% meat. %*% bread.
+        V <- bread. %*% meat. %*% t(bread.)
     } else if (type == "OP") {
         V <- vcovOPG(object, adjust = adjust)
     } else if (type == "NW") {
         bread. <- bread(object)
         meat. <- meatHAC_tsmarch(object, adjust = adjust, ...)
-        V <- bread. %*% meat. %*% bread.
+        V <- bread. %*% meat. %*% t(bread.)
     }
     par_names <- .estimated_parameter_names(object$joint_parmatrix)
     colnames(V) <- rownames(V) <- par_names

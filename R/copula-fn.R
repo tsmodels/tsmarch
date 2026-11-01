@@ -102,10 +102,12 @@
     tmp <- copula_transformation_estimate(new_fit, spec$transformation)
     spec$transform$u <- tmp$u
     spec$transform$transform_model <- tmp$transform_model
+    spec$transform$u[spec$transform$u < 3.330669e-16] <- 2.220446e-16
+    spec$transform$u[spec$transform$u > 0.99999] <- 0.99999
     garch_loglik <- sapply(new_fit, function(x) x$loglik)
     copula_loglik <- .copula_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * (sum(garch_loglik) + copula_loglik)
-    return(model_loglik)
+    model_nll <- sum(garch_loglik) + copula_loglik
+    return(model_nll)
 }
 
 .copula_dynamic_joint_nllvec <- function(pars, spec)
@@ -142,8 +144,8 @@
         copula_loglik <- copula_loglik[-c(1:maxpq)]
     }
     garch_loglik <- do.call(cbind, lapply(new_fit, function(x) x$llvec))
-    model_loglik <- -1.0 * rowSums(cbind(garch_loglik, copula_loglik))
-    return(model_loglik)
+    model_nll <- rowSums(cbind(garch_loglik, copula_loglik))
+    return(model_nll)
 }
 
 
@@ -155,27 +157,23 @@
     dcc_hessian <- matrix(0, m, m)
     H <- bdiag(garch_hessian)
     H <- bdiag(H, dcc_hessian)
-    init_llh <- .copula_dynamic_joint_nll(pars, spec)
     .epsilon <- .Machine$double.eps
     n <- length(pars)
-    step_size <- .epsilon^(1/3) * pmax(abs(pars), 1)
+    step_size <- .epsilon^(1/4) * pmax(abs(pars), 1e-4)
     tmp <- pars + step_size
     step_size <- tmp - pars
     deltas <- as.matrix(diag(step_size, length(step_size), length(step_size)))
-    g <- NULL
-    g <- future_lapply(1:n, function(i) {
-        setDTthreads(1)
-        .copula_dynamic_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch"), future.seed = TRUE)
-    g <- eval(g)
-    g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
     tmp <- NULL
     tmp <- future_lapply(1:n, function(i) {
+        setDTthreads(1)
         s_tmp = step_matrix
         for (j in (n - m + 1):n) {
             if (i <= j) {
-                s_tmp[i, j] <- (.copula_dynamic_joint_nll(pars + deltas[, i] + deltas[, j], spec) - g[i] - g[j] + init_llh) / s_tmp[i, j]
+                s_tmp[i, j] <- (.copula_dynamic_joint_nll(pars + deltas[, i] + deltas[, j], spec) -
+                                .copula_dynamic_joint_nll(pars + deltas[, i] - deltas[, j], spec) -
+                                .copula_dynamic_joint_nll(pars - deltas[, i] + deltas[, j], spec) +
+                                .copula_dynamic_joint_nll(pars - deltas[, i] - deltas[, j], spec)) / (4 * s_tmp[i, j])
                 s_tmp[j, i] <- s_tmp[i, j]
             }
         }
@@ -256,10 +254,12 @@
     tmp <- copula_transformation_estimate(new_fit, spec$transformation)
     spec$transform$u <- tmp$u
     spec$transform$transform_model <- tmp$transform_model
+    spec$transform$u[spec$transform$u < 3.330669e-16] <- 2.220446e-16
+    spec$transform$u[spec$transform$u > 0.99999] <- 0.99999
     garch_loglik <- sapply(new_fit, function(x) x$loglik)
     copula_loglik <- .copula_constant_values(pmatrix_copula[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * (sum(garch_loglik) + copula_loglik)
-    return(model_loglik)
+    model_nll <- sum(garch_loglik) + copula_loglik
+    return(model_nll)
 }
 
 
@@ -289,10 +289,12 @@
     tmp <- copula_transformation_estimate(new_fit, spec$transformation)
     spec$transform$u <- tmp$u
     spec$transform$transform_model <- tmp$transform_model
+    spec$transform$u[spec$transform$u < 3.330669e-16] <- 2.220446e-16
+    spec$transform$u[spec$transform$u > 0.99999] <- 0.99999
     copula_loglik <- .copula_constant_values(pmatrix_copula[estimate == 1]$value, spec, type = "ll_vec")
     garch_loglik <- do.call(cbind, lapply(new_fit, function(x) x$llvec))
-    model_loglik <- -1.0 * rowSums(cbind(garch_loglik, copula_loglik))
-    return(model_loglik)
+    model_nll <- rowSums(cbind(garch_loglik, copula_loglik))
+    return(model_nll)
 }
 
 .copula_constant_hessian <- function(pars, spec)
@@ -303,27 +305,23 @@
     copula_hessian <- matrix(0, m, m)
     H <- bdiag(garch_hessian)
     H <- bdiag(H, copula_hessian)
-    init_llh <- .copula_constant_joint_nll(pars, spec)
     .epsilon <- .Machine$double.eps
     n <- length(pars)
-    step_size <- .epsilon^(1/3) * pmax(abs(pars), 1)
+    step_size <- .epsilon^(1/4) * pmax(abs(pars), 1e-4)
     tmp <- pars + step_size
     step_size <- tmp - pars
     deltas <- as.matrix(diag(step_size, length(step_size), length(step_size)))
-    g <- NULL
-    g <- future_lapply(1:n, function(i) {
-        setDTthreads(1)
-        .copula_constant_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch"), future.seed = NULL)
-    g <- eval(g)
-    g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
     tmp <- NULL
     tmp <- future_lapply(1:n, function(i) {
+        setDTthreads(1)
         s_tmp = step_matrix
         for (j in (n - m + 1):n) {
             if (i <= j) {
-                s_tmp[i, j] <- (.copula_constant_joint_nll(pars + deltas[, i] + deltas[, j], spec) - g[i] - g[j] + init_llh) / s_tmp[i, j]
+                s_tmp[i, j] <- (.copula_constant_joint_nll(pars + deltas[, i] + deltas[, j], spec) -
+                                .copula_constant_joint_nll(pars + deltas[, i] - deltas[, j], spec) -
+                                .copula_constant_joint_nll(pars - deltas[, i] + deltas[, j], spec) +
+                                .copula_constant_joint_nll(pars - deltas[, i] - deltas[, j], spec)) / (4 * s_tmp[i, j])
                 s_tmp[j, i] <- s_tmp[i, j]
             }
         }

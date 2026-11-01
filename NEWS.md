@@ -21,6 +21,12 @@ taking a list with one element per series of raw regressor matrices with
 `NROW(y)`, `h` and `h + burn` rows respectively. Regressors required by a
 first stage model but not supplied raise an error naming the affected
 series.
+* Documented the first stage variance regressors in the vignettes, including
+the choice between the additive and multiplicative (exponential) forms, and
+that first stage mean and variance regressors supplied to the forward-looking
+methods are treated as a single deterministic path shared across all
+simulated paths, so regressor uncertainty is not propagated into the
+predictive distribution.
 * Fixed `simulate` with `burn > 0` failing for the DCC and Copula GARCH
 models: the burn-in period is now discarded once at the end of the joint
 recursion rather than in the correlation recursion before the first stage
@@ -32,6 +38,28 @@ calculation when the ARMA order exceeds the GARCH order.
 * Fixed the joint hessian/score calculation failing when the first stage models
 have unequal numbers of estimated parameters (e.g. when variance targeting is
 used for only some series) (#7, reported by @kbuchardt).
+* Fixed the sign of the second stage rows of the partitioned hessian and of
+the second stage columns of the score matrix in the DCC and Copula GARCH
+models, which were computed from the log-likelihood rather than the negative
+log-likelihood used for the first stage. As a result `vcov(type = "H")`
+returned negative variances for the second stage parameters and `estfun`
+returned second stage scores of the wrong sign.
+* Fixed the `QMLE` and `NW` sandwich estimators in `vcov` (and hence `summary`
+with `vcov_type = "QMLE"` or `"NW"`), which used `B M B` rather than
+`B M B'`. Since the partitioned hessian of the two stage estimator is not
+symmetric, this understated the second stage standard errors and returned a
+non-symmetric matrix. The default `OP` standard errors used by `summary` are
+unaffected.
+* The second derivatives in the partitioned hessian are now computed by central
+differences with steps relative to the parameter magnitude, improving the
+accuracy of the cross derivatives with respect to first stage parameters of
+small magnitude such as the GARCH intercept. This requires more likelihood
+evaluations, so estimation with `return_hessian = TRUE` is somewhat slower.
+* The joint likelihood used in the partitioned hessian (and, for the constant
+correlation model, in the scores) of the Copula GARCH model now applies the
+same truncation of the probability integral transformed values as the
+estimation objective, so that the derivatives are those of the function
+actually minimised.
 * Fixed `pca_cov = "LW"` failing in GOGARCH estimation due to a missing `trace`
 argument (#6, reported by @Caliani21).
 * Replaced `Rf_error` with `Rcpp::stop` in the C++ code (#5, reported by

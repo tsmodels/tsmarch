@@ -569,3 +569,29 @@ to `h + burn`). The list may be fully named, in which case it may be partial,
 or fully unnamed, in which case it must have one element per series. Like ARMA
 dynamics, first stage regressors are mutually exclusive with the `cond_mean`
 argument.
+
+### Variance Equation Regressors
+
+Variance equation regressors can similarly be included in the first stage via
+the `vreg` argument of `garch_modelspec`. The `multiplicative` argument
+controls whether they enter the variance intercept additively or in
+exponential form. The exponential form is the more usual choice in
+practice, since it guarantees a positive variance intercept for any
+combination of regressor and coefficient values and therefore leaves the
+coefficients free to take either sign. Under the additive form, which is
+the `garch_modelspec` default, positivity must instead be imposed by
+constraining the coefficients to be non-negative, so a regressor can only
+raise the variance intercept. The forward-looking methods take the same
+list-one-element-per-series convention as the mean regressors: `newvreg` in
+`tsfilter` (rows equal to the new data) and `predict` (rows equal to `h`),
+and `vreg` in `simulate` (rows equal to `h + burn`), with fully named lists
+allowed to be partial and fully unnamed lists required to cover every series.
+There are two important differences with respect to the mean regressors:
+first, a series specified with `vreg` whose future regressors are not
+supplied raises an error naming the affected series rather than substituting
+zeros with a warning (mirroring the deliberate asymmetry between `newvreg`
+and `newxreg` in `tsgarch`); and second, variance regressors are not mutually
+exclusive with `cond_mean` since they say nothing about the conditional mean.
+For both regressor types, supplied values are treated as a single
+deterministic path shared across all simulated paths, so regressor
+uncertainty is not propagated into the predictive distribution.

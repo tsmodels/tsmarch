@@ -62,6 +62,18 @@ prediction simulation dynamics. For the GOGARCH model, only the external
 pre-filtering approach is available since the first stage models are estimated
 on latent independent components rather than the original series.
 
+Separately from the conditional mean workflows above, the first stage models
+can also include variance equation regressors via the `vreg` argument of
+`garch_modelspec` (with `multiplicative` controlling whether they enter the
+variance intercept additively or in exponential form). These propagate through
+the same specification, filtering, prediction and simulation surfaces via the
+`newvreg` and `vreg` arguments described for each method. Since they say
+nothing about the conditional mean, they are independent of the two workflows
+above and can be combined freely with `cond_mean`. Note also that whilst
+missing mean regressors are replaced with zeros and a warning, a series
+specified with `vreg` whose future regressors are not supplied raises an error
+naming the affected series.
+
 The nature of the models implemented allows for separable dynamics in estimation
 which means that individual series have univariate dynamics which can be estimated
 in parallel. However, the drawback to this is that for standard errors a partitioned

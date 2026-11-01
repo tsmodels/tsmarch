@@ -188,8 +188,8 @@
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
     tmp <- .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * tmp
-    return(model_loglik)
+    model_nll <- tmp
+    return(model_nll)
 }
 
 .dcc_dynamic_joint_nllvec <- function(pars, spec)
@@ -216,12 +216,12 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    model_loglik <- -1.0 * .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "dccll_vec")
+    model_nll <- .dcc_dynamic_values(pmatrix_dcc[estimate == 1]$value, spec, type = "dccll_vec")
     maxpq <- max(spec$dynamics$order)
     if (maxpq > 0) {
-        model_loglik <- model_loglik[-c(1:maxpq)]
+        model_nll <- model_nll[-c(1:maxpq)]
     }
-    return(model_loglik)
+    return(model_nll)
 }
 
 
@@ -233,27 +233,23 @@
     dcc_hessian <- matrix(0, m, m)
     H <- bdiag(garch_hessian)
     H <- bdiag(H, dcc_hessian)
-    init_llh <- .dcc_dynamic_joint_nll(pars, spec)
     .epsilon <- .Machine$double.eps
     n <- length(pars)
-    step_size <- .epsilon^(1/3) * pmax(abs(pars), 1)
+    step_size <- .epsilon^(1/4) * pmax(abs(pars), 1e-4)
     tmp <- pars + step_size
     step_size <- tmp - pars
     deltas <- as.matrix(diag(step_size, length(step_size), length(step_size)))
-    g <- NULL
-    g <- future_lapply(1:n, function(i) {
-        setDTthreads(1)
-        .dcc_dynamic_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch","data.table"), future.seed = TRUE)
-    g <- eval(g)
-    g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
     tmp <- NULL
     tmp <- future_lapply(1:n, function(i) {
+        setDTthreads(1)
         s_tmp = step_matrix
         for (j in (n - m + 1):n) {
             if (i <= j) {
-                s_tmp[i, j] <- (.dcc_dynamic_joint_nll(pars + deltas[, i] + deltas[, j], spec) - g[i] - g[j] + init_llh) / s_tmp[i, j]
+                s_tmp[i, j] <- (.dcc_dynamic_joint_nll(pars + deltas[, i] + deltas[, j], spec) -
+                                .dcc_dynamic_joint_nll(pars + deltas[, i] - deltas[, j], spec) -
+                                .dcc_dynamic_joint_nll(pars - deltas[, i] + deltas[, j], spec) +
+                                .dcc_dynamic_joint_nll(pars - deltas[, i] - deltas[, j], spec)) / (4 * s_tmp[i, j])
                 s_tmp[j, i] <- s_tmp[i, j]
             }
         }
@@ -332,9 +328,8 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    model_loglik <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
-    model_loglik <- -1.0 * model_loglik
-    return(model_loglik)
+    model_nll <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "nll")
+    return(model_nll)
 }
 
 
@@ -362,8 +357,8 @@
     })
     new_fit <- to_multi_estimate(new_fit)
     spec$univariate <- new_fit
-    model_loglik <- -1.0 * .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "ll_vec")
-    return(model_loglik)
+    model_nll <- .dcc_constant_values(pmatrix_dcc[estimate == 1]$value, spec, type = "ll_vec")
+    return(model_nll)
 }
 
 .dcc_constant_hessian <- function(pars, spec)
@@ -374,27 +369,23 @@
     dcc_hessian <- matrix(0, m, m)
     H <- bdiag(garch_hessian)
     H <- bdiag(H, dcc_hessian)
-    init_llh <- .dcc_constant_joint_nll(pars, spec)
     .epsilon <- .Machine$double.eps
     n <- length(pars)
-    step_size <- .epsilon^(1/3) * pmax(abs(pars), 1)
+    step_size <- .epsilon^(1/4) * pmax(abs(pars), 1e-4)
     tmp <- pars + step_size
     step_size <- tmp - pars
     deltas <- as.matrix(diag(step_size, length(step_size), length(step_size)))
-    g <- NULL
-    g <- future_lapply(1:n, function(i) {
-        setDTthreads(1)
-        .dcc_constant_joint_nll(pars + deltas[, i], spec)
-    }, future.packages = c("tsmarch","data.table"), future.seed = NULL)
-    g <- eval(g)
-    g <- unlist(g)
     step_matrix <- step_size %*% t(step_size)
     tmp <- NULL
     tmp <- future_lapply(1:n, function(i) {
+        setDTthreads(1)
         s_tmp = step_matrix
         for (j in (n - m + 1):n) {
             if (i <= j) {
-                s_tmp[i, j] <- (.dcc_constant_joint_nll(pars + deltas[, i] + deltas[, j], spec) - g[i] - g[j] + init_llh) / s_tmp[i, j]
+                s_tmp[i, j] <- (.dcc_constant_joint_nll(pars + deltas[, i] + deltas[, j], spec) -
+                                .dcc_constant_joint_nll(pars + deltas[, i] - deltas[, j], spec) -
+                                .dcc_constant_joint_nll(pars - deltas[, i] + deltas[, j], spec) +
+                                .dcc_constant_joint_nll(pars - deltas[, i] - deltas[, j], spec)) / (4 * s_tmp[i, j])
                 s_tmp[j, i] <- s_tmp[i, j]
             }
         }

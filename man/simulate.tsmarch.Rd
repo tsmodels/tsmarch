@@ -121,4 +121,9 @@ the parallel execution operates on is the number of series (for the
 individual GARCH series simulation), so unless you have more than 100 series
 then it is possible that using a parallel back-end may actually result in
 slower execution due to the overhead involved.
+
+When first stage mean or variance regressors are supplied for the simulated
+horizon (\code{xreg} and \code{vreg}), they are treated as a single
+deterministic path shared across all simulated paths, so regressor
+uncertainty is not propagated into the predictive distribution.
 }
