@@ -24,7 +24,7 @@ sp <- mod$spec
 sp$parmatrix <- mod$parmatrix
 sp$joint_parmatrix <- mod$joint_parmatrix
 
-Href <- numDeriv::hessian(function(q) .dcc_dynamic_joint_nll(q, sp), x0,
+Href <- numDeriv::hessian(function(q) tsmarch:::.dcc_dynamic_joint_nll(q, sp), x0,
                           method.args = list(d = 1e-4, r = 4, eps = 1e-8))
 
 # two step QMLE standard errors: V = D^-1 Psi'Psi D^-T, psi = g2 - C A^-1 g1,
@@ -42,5 +42,5 @@ stage2_se <- function(C, D)
 test_that("cross derivatives match a Richardson reference hessian",{
     se_pkg <- stage2_se(as.matrix(mod$hessian)[i2, i1], as.matrix(mod$hessian)[i2, i2])
     se_ref <- stage2_se(Href[i2, i1], Href[i2, i2])
-    expect_equal(unname(se_pkg), unname(se_ref), tolerance = 1e-2)
+    expect_equal(unname(se_pkg), unname(se_ref), tolerance = 4e-3)
 })

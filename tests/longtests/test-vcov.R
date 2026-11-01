@@ -28,19 +28,19 @@ vcov_models <- list(
 {
     if (inherits(mod, "dcc.estimate")) {
         if (inherits(mod, "dcc.dynamic")) {
-            list(objective = function(p, spec) .dcc_dynamic_values(p, spec, type = "nll"),
-                 pieces = function(p, spec) .dcc_dynamic_values(p, spec, type = "dccll_vec"))
+            list(objective = function(p, spec) tsmarch:::.dcc_dynamic_values(p, spec, type = "nll"),
+                 pieces = function(p, spec) tsmarch:::.dcc_dynamic_values(p, spec, type = "dccll_vec"))
         } else {
-            list(objective = function(p, spec) .dcc_constant_values(p, spec, type = "nll"),
-                 pieces = function(p, spec) .dcc_constant_values(p, spec, type = "ll_vec"))
+            list(objective = function(p, spec) tsmarch:::.dcc_constant_values(p, spec, type = "nll"),
+                 pieces = function(p, spec) tsmarch:::.dcc_constant_values(p, spec, type = "ll_vec"))
         }
     } else {
         if (inherits(mod, "cgarch.dynamic")) {
-            list(objective = function(p, spec) .copula_dynamic_values(p, spec, type = "nll"),
-                 pieces = function(p, spec) .copula_dynamic_values(p, spec, type = "ll_vec"))
+            list(objective = function(p, spec) tsmarch:::.copula_dynamic_values(p, spec, type = "nll"),
+                 pieces = function(p, spec) tsmarch:::.copula_dynamic_values(p, spec, type = "ll_vec"))
         } else {
-            list(objective = function(p, spec) .copula_constant_values(p, spec, type = "nll"),
-                 pieces = function(p, spec) .copula_constant_values(p, spec, type = "ll_vec"))
+            list(objective = function(p, spec) tsmarch:::.copula_constant_values(p, spec, type = "nll"),
+                 pieces = function(p, spec) tsmarch:::.copula_constant_values(p, spec, type = "ll_vec"))
         }
     }
 }
