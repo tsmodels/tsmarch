@@ -93,17 +93,17 @@ shows how to perform 1-step ahead rolling predictions and generation of an equal
 weighted portfolio value at risk at the 10% quantile.
 
 ```{r var_calc,highlight=TRUE}
-h <- 98
+h <- 50
 w <- rep(1/5, 5)
 gogarch_filter_mod <- gogarch_mod
-var_value <- rep(0, 98)
+var_value <- rep(0, h)
 actual <- as.numeric(coredata(test) %*% w)
 
 # first prediction without filtering update
-var_value[1] <- predict(gogarch_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+var_value[1] <- predict(gogarch_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 for (i in 2:h) {
   gogarch_filter_mod <- tsfilter(gogarch_filter_mod, y = test[i - 1,])
-  var_value[i]  <- predict(gogarch_filter_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+  var_value[i]  <- predict(gogarch_filter_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 }
 ```
 
@@ -117,7 +117,7 @@ use the `var_cp_test` function from the [tstests](https://CRAN.R-project.org/pac
 package to evaluate the accuracy of the calculation:
 
 ```{r}
-as_flextable(var_cp_test(actual, var_value, alpha = 0.1), include.decision = TRUE)
+as_flextable(var_cp_test(actual[1:h], var_value, alpha = 0.1), include.decision = TRUE)
 ```
 
 
@@ -286,18 +286,18 @@ newsimpact(dcc_mod, pair = c(1,2)) |> plot()
 We perform a similar exercise as in the GOGARCH filtering section:
 
 ```{r dcc_var_calc,highlight=TRUE}
-h <- 98
+h <- 50
 w <- rep(1/5, 5)
 dcc_filter_mod <- dcc_mod
-var_value <- rep(0, 98)
+var_value <- rep(0, h)
 actual <- as.numeric(coredata(test) %*% w)
 # first prediction without filtering update
-var_value[1] <- predict(dcc_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+var_value[1] <- predict(dcc_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 for (i in 2:h) {
   dcc_filter_mod <- tsfilter(dcc_filter_mod, y = test[i - 1,])
-  var_value[i]  <- predict(dcc_filter_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+  var_value[i]  <- predict(dcc_filter_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 }
-as_flextable(var_cp_test(actual, var_value, alpha = 0.1), include.decision = TRUE)
+as_flextable(var_cp_test(actual[1:h], var_value, alpha = 0.1), include.decision = TRUE)
 ```
 
 ## Weighted Portfolio Distribution
@@ -369,18 +369,18 @@ newsimpact(cgarch_mod, pair = c(1,2)) |> plot()
 
 
 ```{r cgarch_var_calc,highlight=TRUE}
-h <- 98
+h <- 50
 w <- rep(1/5, 5)
 cgarch_filter_mod <- cgarch_mod
-var_value <- rep(0, 98)
+var_value <- rep(0, h)
 actual <- as.numeric(coredata(test) %*% w)
 # first prediction without filtering update
-var_value[1] <- predict(cgarch_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+var_value[1] <- predict(cgarch_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 for (i in 2:h) {
   cgarch_filter_mod <- tsfilter(cgarch_filter_mod, y = test[i - 1,])
-  var_value[i]  <- predict(cgarch_filter_mod, h = 1, nsim = 5000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
+  var_value[i]  <- predict(cgarch_filter_mod, h = 1, nsim = 1000, seed = 100) |> value_at_risk(weights = w, alpha = 0.1)
 }
-as_flextable(var_cp_test(actual, var_value, alpha = 0.1), include.decision = TRUE)
+as_flextable(var_cp_test(actual[1:h], var_value, alpha = 0.1), include.decision = TRUE)
 ```
 
 ## Weighted Portfolio Distribution
@@ -451,7 +451,7 @@ ensuring that the output generated from different methods which depends on this
 will be correctly reflected. For this example we will use the DCC model:
 
 ```{r}
-dcc_mod_mean <- dcc_modelspec(garch_model, dynamics = "adcc", distribution = "mvt", cond_mean = .fitted) |> estimate()
+dcc_mod_mean <- dcc_modelspec(garch_model, dynamics = "adcc", distribution = "mvt", cond_mean = .fitted) |> estimate(return_hessian = FALSE)
 all.equal(fitted(dcc_mod_mean), .fitted)
 ```
 
@@ -548,7 +548,7 @@ garch_model_arma <- lapply(1:5, function(i) {
 })
 garch_model_arma <- to_multi_estimate(garch_model_arma)
 names(garch_model_arma) <- colnames(train)
-dcc_mod_arma <- dcc_modelspec(garch_model_arma, dynamics = "adcc", distribution = "mvt") |> estimate()
+dcc_mod_arma <- dcc_modelspec(garch_model_arma, dynamics = "adcc", distribution = "mvt") |> estimate(return_hessian = FALSE)
 all.equal(coredata(fitted(dcc_mod_arma)), coredata(fitted(garch_model_arma)))
 ```
 
